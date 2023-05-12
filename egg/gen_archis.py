@@ -405,7 +405,7 @@ def gen_archis_types(opts, simd_dir, platform, simd_ext):
 def gen_archis_platform(opts, platform):
     include_dir = os.path.join(opts.include_dir, platform);
     for s in opts.platforms[platform].get_simd_exts():
-        common.myprint(opts, 'Found new SIMD extension: {}'.format(s))
+        common.myprint(opts, f'Found new SIMD extension: {s}')
         if s in opts.simd:
             simd_dir = os.path.join(include_dir, s)
             common.mkdir_p(simd_dir)

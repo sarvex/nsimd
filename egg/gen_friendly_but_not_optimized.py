@@ -83,8 +83,11 @@ def doit(opts):
 
                      '''.format(year=date.today().year))
         for op_name, operator in operators.operators.items():
-            if operator.cxx_operator == None or len(operator.params) != 3 or \
-               operator.name in ['shl', 'shr']:
+            if (
+                operator.cxx_operator is None
+                or len(operator.params) != 3
+                or operator.name in ['shl', 'shr']
+            ):
                 continue
             out.write('''{hbar}
 

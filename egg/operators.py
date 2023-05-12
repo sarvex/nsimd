@@ -36,10 +36,9 @@ class MAddToCategories(type):
     def __new__(cls, name, bases, dct):
         if name != 'DocCategory':
             if 'title' not in dct:
-                raise Exception('No member title provided for class {}'. \
-                                format(name))
+                raise Exception(f'No member title provided for class {name}')
             dct['name'] = name
-            dct['id'] = '/categories/{}'.format(name)
+            dct['id'] = f'/categories/{name}'
         ret = type.__new__(cls, name, bases, dct)
         if name != 'DocCategory':
             categories[name] = ret()
@@ -112,7 +111,7 @@ class MAddToOperators(type):
             raise Exception('Member does not exists in class {}'.format(name))
 
         # We don't care about the parent class
-        if name == 'Operator' or name == 'SrcOperator':
+        if name in ['Operator', 'SrcOperator']:
             return type.__new__(cls, name, bases, dct)
 
         # Mandatory members
@@ -120,30 +119,27 @@ class MAddToOperators(type):
         for m in mm:
             if m not in dct:
                 raise Exception('Mandatory member "{}" not given in "{}"'. \
-                                format(m, name))
+                                    format(m, name))
 
         # Check that all items in categories exists
         for c in dct['categories']:
             if type(c) == str:
                 raise Exception( \
-                      'Category "{}" must not be a string for operator "{}"'. \
-                      format(c, name))
+                          'Category "{}" must not be a string for operator "{}"'. \
+                          format(c, name))
             if not hasattr(c, 'name'):
                 raise Exception( \
-                      'Category "{}" does not exist for operator "{}"'. \
-                      format(c.__class__.__name__, name))
+                          'Category "{}" does not exist for operator "{}"'. \
+                          format(c.__class__.__name__, name))
             if c.name not in categories:
                 raise Exception( \
-                      'Category "{}" does not exist for operator "{}"'. \
-                      format(c.__class__.__name__, name))
+                          'Category "{}" does not exist for operator "{}"'. \
+                          format(c.__class__.__name__, name))
 
         # Some defaults, that are fixed by the implementation
         (dct['name'], dct['params']) = common.parse_signature(dct['signature'])
         if 'output_to' in dct:
-            if dct['output_to'] == common.OUTPUT_TO_SAME_TYPE:
-                dct['closed'] = True
-            else:
-                dct['closed'] = False
+            dct['closed'] = dct['output_to'] == common.OUTPUT_TO_SAME_TYPE
         else:
             dct['closed'] = True
             dct['output_to'] = common.OUTPUT_TO_SAME_TYPE
@@ -152,11 +148,7 @@ class MAddToOperators(type):
         # by default we cannot autogenerate the C++ advanced API because we
         # cannot guess how to combine pieces of a unrolled pack
         if 'autogen_cxx_adv' not in dct:
-            if dct['params'][0] in ['p', 's']:
-                dct['autogen_cxx_adv'] = False
-            else:
-                dct['autogen_cxx_adv'] = True
-
+            dct['autogen_cxx_adv'] = dct['params'][0] not in ['p', 's']
         # By default tests are done on random numbers depending on the type
         # but sometimes one needs to produce only integers even if the
         # type is a floating point type.
@@ -174,7 +166,7 @@ class MAddToOperators(type):
         # Check that params is not empty
         if len(dct['params']) == 0:
             raise Exception('"params" is empty for operator "{}"'. \
-                            format(name))
+                                format(name))
 
         # Fill full_name, default is same as name
         if 'full_name' not in dct:
@@ -185,10 +177,10 @@ class MAddToOperators(type):
             arg = 'arguments' if len(dct['params']) > 2 else 'argument'
             if dct['params'][0] == '_':
                 dct['desc'] = '{} the {}.'. \
-                              format(dct['full_name'].capitalize(), arg)
+                                  format(dct['full_name'].capitalize(), arg)
             else:
                 dct['desc'] = 'Returns the {} of the {}.'.\
-                              format(dct['full_name'], arg)
+                                  format(dct['full_name'], arg)
 
         # Fill src, default is operator is in header not in source
         if not member_is_defined('src'):
@@ -200,18 +192,16 @@ class MAddToOperators(type):
 
         # Fill has_scalar_impl, default is based on several properties
         if 'has_scalar_impl' not in dct:
-            if DocShuffle in dct['categories'] or \
-               DocMisc in dct['categories'] or \
-               'vx2' in dct['params'] or \
-               'vx3' in dct['params'] or \
-               'vx4' in dct['params'] or \
-               dct['output_to'] in [common.OUTPUT_TO_UP_TYPES,
-                                    common.OUTPUT_TO_DOWN_TYPES] or \
-               dct['load_store']:
-                dct['has_scalar_impl'] = False
-            else:
-                dct['has_scalar_impl'] = True
-
+            dct['has_scalar_impl'] = (
+                DocShuffle not in dct['categories']
+                and DocMisc not in dct['categories']
+                and 'vx2' not in dct['params']
+                and 'vx3' not in dct['params']
+                and 'vx4' not in dct['params']
+                and dct['output_to']
+                not in [common.OUTPUT_TO_UP_TYPES, common.OUTPUT_TO_DOWN_TYPES]
+                and not dct['load_store']
+            )
         ret = type.__new__(cls, name, bases, dct)
         operators[dct['name']] = ret()
         return ret
@@ -257,10 +247,10 @@ class Operator(object, metaclass=MAddToOperators):
         return self.params[0]
 
     def tests_mpfr_name(self):
-        return 'mpfr_' + self.name
+        return f'mpfr_{self.name}'
 
     def bench_mipp_name(self, typ):
-        return 'mipp::{}<{}>'.format(self.name, typ)
+        return f'mipp::{self.name}<{typ}>'
 
     def bench_mipp_types(self):
         return common.ftypes_no_f16
@@ -272,36 +262,35 @@ class Operator(object, metaclass=MAddToOperators):
         return common.ftypes_no_f16
 
     def bench_std_name(self, simd, typ):
-        return 'std::{}'.format(self.name)
+        return f'std::{self.name}'
 
     def bench_std_types(self):
         return self.types
 
     # TODO: move to gen_archis.py
     def get_header_guard(self, platform, simd_ext):
-        return 'NSIMD_{}_{}_{}_H'.format(platform.upper(),
-            simd_ext.upper(), self.name.upper())
+        return f'NSIMD_{platform.upper()}_{simd_ext.upper()}_{self.name.upper()}_H'
 
     def get_fmtspec(self, t, tt, simd_ext):
-        ret = {}
         return_typ = common.get_one_type_specific(self.params[0], simd_ext, tt)
-        ret['return_typ'] = return_typ
-        ret['returns'] = '' if return_typ == 'void' else 'return '
+        ret = {
+            'return_typ': return_typ,
+            'returns': '' if return_typ == 'void' else 'return ',
+        }
         args_list = common.enum([common.get_one_type_specific(p, simd_ext, t)
                                  for p in self.params[1:]])
         if len(args_list) > 0:
-            ret['c_args'] = ', '.join(['{} a{}'.format(i[1], i[0])
-                                       for i in args_list])
+            ret['c_args'] = ', '.join([f'{i[1]} a{i[0]}' for i in args_list])
             ret['cxx_args'] = ret['c_args'] + ', '
         else:
             ret['c_args'] = 'void'
             ret['cxx_args'] = ''
         if self.closed:
-            ret['cxx_args'] += '{}, {}'.format(t, simd_ext)
+            ret['cxx_args'] += f'{t}, {simd_ext}'
         else:
-            ret['cxx_args'] += '{}, {}, {}'.format(t, tt, simd_ext)
-        ret['vas'] = ', '.join(['a{}'.format(i[0]) for i in args_list])
-        ret['suf'] = tt if self.closed else '{}_{}'.format(tt, t)
+            ret['cxx_args'] += f'{t}, {tt}, {simd_ext}'
+        ret['vas'] = ', '.join([f'a{i[0]}' for i in args_list])
+        ret['suf'] = tt if self.closed else f'{tt}_{t}'
         ret['name'] = self.name
         ret['hbar'] = common.hbar
         ret['simd_ext'] = simd_ext
@@ -534,41 +523,40 @@ class Operator(object, metaclass=MAddToOperators):
     def get_signature(self, typename, lang, simd_ext):
         # Check that the type is available for this function
         if typename not in self.types:
-            raise Exception('Type {} not supported for function {}'. \
-                            format(typename, self.name))
+            raise Exception(f'Type {typename} not supported for function {self.name}')
 
         fmtspec = self.get_fmtspec(typename, typename, simd_ext)
 
         if lang == 'c_base':
             sig = '{return_typ} NSIMD_VECTORCALL ' \
-                  'nsimd_{name}_{simd_ext}_{suf}({c_args})'.format(**fmtspec)
+                      'nsimd_{name}_{simd_ext}_{suf}({c_args})'.format(**fmtspec)
         elif lang == 'cxx_base':
             sig = '{return_typ} NSIMD_VECTORCALL ' \
-                  '{name}({cxx_args})'.format(**fmtspec)
+                      '{name}({cxx_args})'.format(**fmtspec)
         elif lang == 'cxx_adv':
             sig = ''
-            raise Exception('TODO cxx_adv for {}'.format(lang))
+            raise Exception(f'TODO cxx_adv for {lang}')
         else:
-            raise Exception('Unknown langage {}'.format(lang))
+            raise Exception(f'Unknown langage {lang}')
 
         return sig
 
     def get_scalar_signature(self, cpu_gpu, t, tt, lang):
         sig = '__device__ ' if cpu_gpu == 'gpu' else ''
-        sig += common.get_one_type_scalar(self.params[0], tt) + ' '
-        func_name = 'nsimd_' if lang == 'c' else ''
-        func_name += 'gpu_' if cpu_gpu in ['gpu', 'oneapi'] else 'scalar_'
+        sig += f'{common.get_one_type_scalar(self.params[0], tt)} '
+        func_name = ('nsimd_' if lang == 'c' else '') + (
+            'gpu_' if cpu_gpu in ['gpu', 'oneapi'] else 'scalar_'
+        )
         func_name += self.name
         operator_on_logicals = (self.params == ['l'] * len(self.params))
         if lang == 'c' and not operator_on_logicals:
-            func_name += '_{}_{}'.format(tt, t) if not self.closed \
-                                                else '_{}'.format(t)
+            func_name += f'_{tt}_{t}' if not self.closed else f'_{t}'
         sig += func_name
         args_list = common.enum([common.get_one_type_scalar(p, t)
                                  for p in self.params[1:]])
-        args = ['{} a{}'.format(i[1], i[0]) for i in args_list]
+        args = [f'{i[1]} a{i[0]}' for i in args_list]
         if lang == 'cxx' and (not self.closed or \
-           ('v' not in self.params[1:] and not operator_on_logicals)):
+               ('v' not in self.params[1:] and not operator_on_logicals)):
             args = [tt] + args
         sig += '(' + ', '.join(args) + ')'
         return sig

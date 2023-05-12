@@ -83,6 +83,7 @@ def doit(opts):
                     fout.write(line)
         shutil.copyfile(dst, src)
         os.remove(dst)
+
     comment_DALIAS_lines('sleefsimdsp.c')
     comment_DALIAS_lines('sleefsimddp.c')
 
@@ -108,6 +109,7 @@ def doit(opts):
                     fout.write(line)
         shutil.copyfile(dst, src)
         os.remove(dst)
+
     replace_x86_cpuid('helpersse2.h')
     replace_x86_cpuid('helperavx.h')
     replace_x86_cpuid('helperavx2.h')
@@ -162,7 +164,7 @@ def doit(opts):
                 if items[0] == 'NULL':
                     break
                 sleef_name_f64 = items[0] + ulp_suffix[items[2]]
-                sleef_name_f32 = items[0] + 'f' + ulp_suffix[items[2]]
+                sleef_name_f32 = f'{items[0]}f{ulp_suffix[items[2]]}'
                 items[1] = items[1] if items[1] != '5' else '05'
                 if items[1] == '-1':
                     nsimd_name_f64 = 'nsimd_sleef_{}_{{nsimd_ext}}_f64'. \

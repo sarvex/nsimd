@@ -20,7 +20,7 @@
 
 import common
 
-fmtspec = dict()
+fmtspec = {}
 
 # -----------------------------------------------------------------------------
 
@@ -81,9 +81,9 @@ def shift(func, typ):
     # getting here means shr or shra
     if typ in common.utypes:
         return 'return ({typ})({in0} >> {in1});'.format(**fmtspec)
-    # getting here means shr or shra on signed type
-    utyp = common.bitfield_type[typ]
     if func == 'shr':
+        # getting here means shr or shra on signed type
+        utyp = common.bitfield_type[typ]
         return '''return nsimd_scalar_reinterpret_{typ}_{utyp}(
                            ({utyp})(nsimd_scalar_reinterpret_{utyp}_{typ}(
                              {in0}) >> {in1}));'''.format(utyp=utyp, **fmtspec)
@@ -301,8 +301,8 @@ def adds(typ):
                   }}
                   '''.format(**fmtspec)
     # Getting here means typ is signed
-    int_max = 'NSIMD_' + typ.upper() + '_MAX'
-    int_min = 'NSIMD_' + typ.upper() + '_MIN'
+    int_max = f'NSIMD_{typ.upper()}_MAX'
+    int_min = f'NSIMD_{typ.upper()}_MIN'
     return '''if (({in0} >= 0 && {in1} <= 0) || ({in0} <= 0 && {in1} >= 0)) {{
                 return ({typ})({in0} + {in1});
               }} else {{

@@ -28,7 +28,7 @@ import gen_tests as nsimd_tests
 # CUDA: default number of threads per block
 
 tpb = 128
-gpu_params = '(n + {}) / {}, {}'.format(tpb, tpb - 1, tpb)
+gpu_params = f'(n + {tpb}) / {tpb - 1}, {tpb}'
 
 # -----------------------------------------------------------------------------
 # helpers
@@ -36,18 +36,16 @@ gpu_params = '(n + {}) / {}, {}'.format(tpb, tpb - 1, tpb)
 def append(s1, s2):
     if s1 == '':
         return s2
-    if s2 == '':
-        return s1
-    return s1 + ', ' + s2
+    return s1 if s2 == '' else f'{s1}, {s2}'
 
 k_typ = {'i': 'k_int', 'u': 'k_uint', 'f': 'k_float'}
 
 def get_signature(op):
-    args = ', '.join(['a{}'.format(i - 1) for i in range(1, len(op.params))])
+    args = ', '.join([f'a{i - 1}' for i in range(1, len(op.params))])
     if op.output_to == common.OUTPUT_TO_SAME_SIZE_TYPES or \
        op.name == 'to_mask':
         args = append('to_type', args)
-    return '#define k_{}({})'.format(op.name, args)
+    return f'#define k_{op.name}({args})'
 
 # -----------------------------------------------------------------------------
 
@@ -437,7 +435,7 @@ def gen_tests_for_shifts(opts, t, operator):
     op_name = operator.name
     dirname = os.path.join(opts.tests_dir, 'modules', 'spmd')
     common.mkdir_p(dirname)
-    filename = os.path.join(dirname, '{}.{}.cpp'.format(op_name, t))
+    filename = os.path.join(dirname, f'{op_name}.{t}.cpp')
     if not common.can_create_filename(opts, filename):
         return
     with common.open_utf8(opts, filename) as out:
@@ -562,7 +560,7 @@ def gen_tests_for_cvt_reinterpret(opts, tt, t, operator):
     op_name = operator.name
     dirname = os.path.join(opts.tests_dir, 'modules', 'spmd')
     common.mkdir_p(dirname)
-    filename = os.path.join(dirname, '{}.{}_{}.cpp'.format(op_name, t, tt))
+    filename = os.path.join(dirname, f'{op_name}.{t}_{tt}.cpp')
     if not common.can_create_filename(opts, filename):
         return
 
@@ -722,7 +720,7 @@ def gen_tests_for(opts, t, operator):
     args = ', '.join([spmd_load_code(operator.params[i + 1], t, i) \
                       for i in range(arity)])
     if op_name == 'to_mask':
-        args = k_typ[t[0]] + ', ' + args
+        args = f'{k_typ[t[0]]}, {args}'
     if operator.params[0] == 'v':
         k_code = 'k_store(dst, k_{}({}));'.format(op_name, args)
     else:
@@ -752,8 +750,8 @@ def gen_tests_for(opts, t, operator):
     args_oneapi = ', '.join([gpu_load_code(operator.params[i + 1], t, i,
                                            'oneapi') for i in range(arity)])
     if op_name == 'to_mask':
-        args_cuda_rocm = t + '(), ' + args_cuda_rocm
-        args_oneapi = t + '(), ' + args_oneapi
+        args_cuda_rocm = f'{t}(), {args_cuda_rocm}'
+        args_oneapi = f'{t}(), {args_oneapi}'
     if operator.params[0] == 'v':
         cuda_rocm_kernel = 'dst[i] = nsimd::gpu_{}({});'. \
                            format(op_name, args_cuda_rocm)
@@ -789,7 +787,7 @@ def gen_tests_for(opts, t, operator):
     args = ', '.join([cpu_load_code(operator.params[i + 1], t, i) \
                       for i in range(arity)])
     if op_name == 'to_mask':
-        args = t + '(), ' + args
+        args = f'{t}(), {args}'
     if operator.params[0] == 'v':
         cpu_kernel = 'dst[i] = nsimd::scalar_{}({});'.format(op_name, args)
     else:

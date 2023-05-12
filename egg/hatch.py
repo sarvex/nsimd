@@ -78,11 +78,10 @@ def parse_args(args):
                         "SIMD '{}' not found in {}".format(simd, common.simds))
             ret += common.simds_deps[simd]
         return list(set(ret))
+
     def parse_match(value):
-        if value is None:
-            return None
-        else:
-            return re.compile(value)
+        return None if value is None else re.compile(value)
+
     # In pratice, we either generate all or all except tests and we never
     # change default directories for code generation. So we remove unused
     # options and regroup some into --library.
@@ -151,7 +150,7 @@ def main():
 
     ## Gather all SIMD dependencies
     opts.simd = common.get_simds_deps_from_opts(opts)
-    common.myprint(opts, 'List of SIMD: {}'.format(', '.join(opts.simd)))
+    common.myprint(opts, f"List of SIMD: {', '.join(opts.simd)}")
     if opts.archis == True or opts.all == True:
         gen_archis.doit(opts)
     if opts.base_apis == True or opts.all == True:

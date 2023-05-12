@@ -56,8 +56,7 @@ class BenchError(RuntimeError):
 # Markers
 
 def asm_marker(simd, bench_name):
-    r = ''
-    r += '#ifdef ASM_MARKER'
+    r = '' + '#ifdef ASM_MARKER'
     r += '\n'
 
     for_intel = '__asm__ __volatile__("callq __asm_marker__{bench_name}");'. \
@@ -78,7 +77,7 @@ def asm_marker(simd, bench_name):
         #TODO
         return ''. format(bench_name=bench_name)
     else:
-        raise BenchError('Unable to write marker for SIMD: {}'.format(simd))
+        raise BenchError(f'Unable to write marker for SIMD: {simd}')
     r += '\n'
     r += '#endif'
     return r
@@ -137,10 +136,10 @@ class TypeScalar(TypeBase):
         return typ
 
     def code_load(self, simd, typ, ptr):
-        return '*({})'.format(ptr)
+        return f'*({ptr})'
 
     def code_store(self, simd, typ, lhs, rhs):
-        return '*({}) = {}'.format(lhs, rhs)
+        return f'*({lhs}) = {rhs}'
 
 # -----------------------------------------------------------------------------
 
@@ -166,10 +165,10 @@ class TypeLogicalScalar(TypeBase):
             }.get(typ, typ)
 
     def code_load(self, simd, typ, ptr):
-        return '({})(*({}))'.format(self.as_type(typ), ptr)
+        return f'({self.as_type(typ)})(*({ptr}))'
 
     def code_store(self, simd, typ, lhs, rhs):
-        return '*({}) = ({})({})'.format(lhs, typ, rhs)
+        return f'*({lhs}) = ({typ})({rhs})'
 
 # -----------------------------------------------------------------------------
 
@@ -193,7 +192,7 @@ class TypePtr(TypeBase):
     name = '*'
 
     def as_type(self, typ):
-        return typ + '*'
+        return f'{typ}*'
 
 # -----------------------------------------------------------------------------
 
@@ -201,7 +200,7 @@ class TypeConstPtr(TypeBase):
     name = 'c*'
 
     def as_type(self, typ):
-        return 'const ' + typ + '*'
+        return f'const {typ}*'
 
 # -----------------------------------------------------------------------------
 
@@ -209,13 +208,13 @@ class TypeVector(TypeVectorBase):
     name = 'v'
 
     def as_type(self, typ):
-        return 'v' + typ
+        return f'v{typ}'
 
     def code_load(self, simd, typ, ptr):
-        return 'nsimd::loada({}, {}())'.format(ptr, typ)
+        return f'nsimd::loada({ptr}, {typ}())'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'nsimd::storea({}, {}, {}())'.format(ptr, expr, typ)
+        return f'nsimd::storea({ptr}, {expr}, {typ}())'
 
 # -----------------------------------------------------------------------------
 
@@ -223,10 +222,10 @@ class TypeCPUVector(TypeVector):
     name = 'vcpu'
 
     def code_load(self, simd, typ, ptr):
-        return 'nsimd::loada({}, {}(), nsimd::cpu())'.format(ptr, typ)
+        return f'nsimd::loada({ptr}, {typ}(), nsimd::cpu())'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'nsimd::storea({}, {}, {}(), nsimd::cpu())'.format(ptr, expr, typ)
+        return f'nsimd::storea({ptr}, {expr}, {typ}(), nsimd::cpu())'
 
 # -----------------------------------------------------------------------------
 
@@ -235,11 +234,10 @@ class TypeUnrolledVectorBase(TypeVectorBase):
         raise NotImplemented()
 
     def code_load(self, simd, typ, ptr):
-        return 'nsimd::loada<nsimd::pack<{}, {}>>({})'. \
-               format(typ, self.unroll, ptr)
+        return f'nsimd::loada<nsimd::pack<{typ}, {self.unroll}>>({ptr})'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'nsimd::storea({}, {})'.format(ptr, expr)
+        return f'nsimd::storea({ptr}, {expr})'
 
 # -----------------------------------------------------------------------------
 
@@ -285,7 +283,7 @@ class TypeVectorX2(TypeVectorBase):
     name = 'vx2'
 
     def as_type(self, typ):
-        return 'v' + typ + 'x2'
+        return f'v{typ}x2'
 
 # -----------------------------------------------------------------------------
 
@@ -293,7 +291,7 @@ class TypeVectorX3(TypeVectorBase):
     name = 'vx3'
 
     def as_type(self, typ):
-        return 'v' + typ + 'x3'
+        return f'v{typ}x3'
 
 # -----------------------------------------------------------------------------
 
@@ -301,7 +299,7 @@ class TypeVectorX4(TypeVectorBase):
     name = 'vx4'
 
     def as_type(self, typ):
-        return 'v' + typ + 'x4'
+        return f'v{typ}x4'
 
 # -----------------------------------------------------------------------------
 
@@ -309,13 +307,13 @@ class TypeLogical(TypeVectorBase):
     name = 'l'
 
     def as_type(self, typ):
-        return 'vl' + typ
+        return f'vl{typ}'
 
     def code_load(self, simd, typ, ptr):
-        return 'nsimd::loadla({}, {}())'.format(ptr, typ)
+        return f'nsimd::loadla({ptr}, {typ}())'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'nsimd::storela({}, {}, {}())'.format(ptr, expr, typ)
+        return f'nsimd::storela({ptr}, {expr}, {typ}())'
 
 # -----------------------------------------------------------------------------
 
@@ -323,10 +321,10 @@ class TypeCPULogical(TypeLogical):
     name = 'lcpu'
 
     def code_load(self, simd, typ, ptr):
-        return 'nsimd::loadla({}, {}(), nsimd::cpu())'.format(ptr, typ)
+        return f'nsimd::loadla({ptr}, {typ}(), nsimd::cpu())'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'nsimd::storela({}, {}, {}(), nsimd::cpu())'.format(ptr, expr, typ)
+        return f'nsimd::storela({ptr}, {expr}, {typ}(), nsimd::cpu())'
 
 # -----------------------------------------------------------------------------
 
@@ -335,11 +333,10 @@ class TypeUnrolledLogicalBase(TypeVectorBase):
         raise NotImplemented()
 
     def code_load(self, simd, typ, ptr):
-        return 'nsimd::loadla<nsimd::packl<{}, {}>>({})'. \
-               format(typ, self.unroll, ptr)
+        return f'nsimd::loadla<nsimd::packl<{typ}, {self.unroll}>>({ptr})'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'nsimd::storela({}, {})'.format(ptr, expr)
+        return f'nsimd::storela({ptr}, {expr})'
 
 # -----------------------------------------------------------------------------
 
@@ -385,13 +382,13 @@ class TypeBoostSimdVector(TypeVectorBase):
     name = 'boost::simd::pack'
 
     def as_type(self, typ):
-        return 'boost::simd::pack<{}>'.format(typ)
+        return f'boost::simd::pack<{typ}>'
 
     def code_load(self, simd, typ, ptr):
-        return '{}({})'.format(self.as_type(typ), ptr)
+        return f'{self.as_type(typ)}({ptr})'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'nsimd::storea({}, {}, {}())'.format(ptr, expr, typ)
+        return f'nsimd::storea({ptr}, {expr}, {typ}())'
 
 # -----------------------------------------------------------------------------
 
@@ -399,13 +396,13 @@ class TypeBoostSimdLogicalVector(TypeVectorBase):
     name = 'boost::simd::lpack'
 
     def as_type(self, typ):
-        return 'boost::simd::pack<boost::simd::logical<{}>>'.format(typ)
+        return f'boost::simd::pack<boost::simd::logical<{typ}>>'
 
     def code_load(self, simd, typ, ptr):
-        return '{}({})'.format(self.as_type(typ), ptr)
+        return f'{self.as_type(typ)}({ptr})'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'nsimd::storea({}, {}, {}())'.format(ptr, expr, typ)
+        return f'nsimd::storea({ptr}, {expr}, {typ}())'
 
 # -----------------------------------------------------------------------------
 
@@ -413,13 +410,13 @@ class TypeMIPPReg(TypeVectorBase):
     name = 'mipp::reg'
 
     def as_type(self, typ):
-        return 'mipp::Reg<{}>'.format(typ)
+        return f'mipp::Reg<{typ}>'
 
     def code_load(self, simd, typ, ptr):
-        return 'mipp::load<{}>({})'.format(typ, ptr)
+        return f'mipp::load<{typ}>({ptr})'
 
     def code_store(self, simd, typ, ptr, expr):
-        return 'mipp::store({}, {})'.format(ptr, expr)
+        return f'mipp::store({ptr}, {expr})'
 
 # -----------------------------------------------------------------------------
 
@@ -427,19 +424,19 @@ class TypeMIPPMsk(TypeVectorBase):
     name = 'mipp::msk'
 
     def as_type(self, typ):
-        return 'mipp::Msk<{}>'.format(typ)
+        return f'mipp::Msk<{typ}>'
 
     def code_load(self, simd, typ, ptr):
         if simd in ['avx512_knl', 'avx512_skylake']:
-            return '*({})'.format(ptr)
+            return f'*({ptr})'
         else:
-            return 'mipp::load<{}>({})'.format(typ, ptr)
+            return f'mipp::load<{typ}>({ptr})'
 
     def code_store(self, simd, typ, ptr, expr):
         if simd in ['avx512_knl', 'avx512_skylake']:
-            return '*({}) = {}'.format(ptr, expr)
+            return f'*({ptr}) = {expr}'
         else:
-            return 'mipp::store({}, reinterpret_cast<mipp::reg>({}))'.format(ptr, expr)
+            return f'mipp::store({ptr}, reinterpret_cast<mipp::reg>({expr}))'
 
 # -----------------------------------------------------------------------------
 
@@ -447,7 +444,7 @@ def type_of(param):
     if param in types:
         return types[param]
     else:
-        raise BenchError("Unable to find corresponding type for: " + param)
+        raise BenchError(f"Unable to find corresponding type for: {param}")
 
 def as_type(param, typ):
     return type_of(param).as_type(typ)
@@ -458,8 +455,7 @@ def as_type(param, typ):
 class BenchOperator(object, metaclass=type):
     def __init__(self):
         self.typed_params_ = []
-        for p in self.params:
-            self.typed_params_.append(type_of(p))
+        self.typed_params_.extend(type_of(p) for p in self.params)
 
     @property
     def function_name(self):
@@ -467,12 +463,13 @@ class BenchOperator(object, metaclass=type):
 
     ## Generates list of includes to be included
     def gen_includes(self, lang):
-        includes = []
-        includes.append('<nsimd/nsimd.h>')
-        if lang == 'cxx_adv':
-            includes.append('<nsimd/cxx_adv_api.hpp>')
+        includes = ['<nsimd/nsimd.h>']
         if lang == 'c_base':
             includes += ['<stdlib.h>', '<stdio.h>', '<errno.h>', '<string.h>']
+        elif lang == 'cxx_adv':
+            includes.append('<nsimd/cxx_adv_api.hpp>')
+            includes += ['<cstdlib>', '<cstdio>', '<cerrno>', '<cstring>',
+                         '<algorithm>']
         else:
             includes += ['<cstdlib>', '<cstdio>', '<cerrno>', '<cstring>',
                          '<algorithm>']
@@ -482,10 +479,7 @@ class BenchOperator(object, metaclass=type):
         (name, params) = common.parse_signature(signature)
         if len(params) != len(self.params):
             return False
-        for p1, p2 in zip(params, self.params):
-            if p1 != p2:
-                return False
-        return True
+        return all(p1 == p2 for p1, p2 in zip(params, self.params))
 
     def bench_code_before(self, typ):
         return ''
@@ -517,11 +511,14 @@ class BenchOperator(object, metaclass=type):
             for typ in self.bench_mipp_types():
                 ## MIPP always requires template
                 mipp_name = self.bench_mipp_name(typ)
-                signature = sig_translate(self.signature, {
-                    'v': 'mipp::reg',
-                    'l': 'mipp::msk',
-                    }, name=mipp_name)
-                if signature:
+                if signature := sig_translate(
+                    self.signature,
+                    {
+                        'v': 'mipp::reg',
+                        'l': 'mipp::msk',
+                    },
+                    name=mipp_name,
+                ):
                     bench['*'][typ]['MIPP'] = signature
         if self.bench_auto_against_sleef:
             for simd in common.simds:
@@ -548,12 +545,15 @@ class BenchOperator(object, metaclass=type):
             for simd in common.simds:
                 for typ in self.bench_std_types():
                     std_name = self.bench_std_name(simd, typ)
-                    signature = sig_translate(self.signature, {
-                        's': 'volatile-s',
-                        'v': 'volatile-s',
-                        'l': 'volatile-s',
-                        }, std_name)
-                    if signature:
+                    if signature := sig_translate(
+                        self.signature,
+                        {
+                            's': 'volatile-s',
+                            'v': 'volatile-s',
+                            'l': 'volatile-s',
+                        },
+                        std_name,
+                    ):
                         if self.cxx_operator:
                             bench[simd][typ]['std'] = std_operator_from_sig(signature,
                                     self.cxx_operator)
@@ -562,12 +562,11 @@ class BenchOperator(object, metaclass=type):
         return bench
 
     def code_call(self, typ, args):
-        return 'nsimd::{}({}, {}())'.format(self.name,
-                                            common.pprint_commas(args), typ)
+        return f'nsimd::{self.name}({common.pprint_commas(args)}, {typ}())'
 
     def code_ptr_step(self, typ, simd):
         if any(p.is_simd() for p in self.typed_params_):
-            return 'vlen_e({}, {})'.format(typ, simd)
+            return f'vlen_e({typ}, {simd})'
         else:
             return '1'
 
@@ -601,53 +600,66 @@ for op_name, operator in operators.operators.items():
 # Function helpers
 
 def nsimd_unrolled_fun_from_sig(from_sig, unroll):
-    sig = sig_translate(from_sig, {
-        'v': 'vu' + str(unroll),
-        'l': 'lu' + str(unroll),
-        })
-    class InlineNSIMDUnrolledFun(operators.Operator, BenchOperatorWithNoMakers,
-                                 metaclass=dummy):
+    sig = sig_translate(
+        from_sig, {'v': f'vu{str(unroll)}', 'l': f'lu{str(unroll)}'}
+    )
+
+
+    class InlineNSIMDUnrolledFun(operators.Operator, BenchOperatorWithNoMakers, metaclass=dummy):
         signature = sig
         def code_call(self, typ, args):
-            return 'nsimd::{}({})'.format(self.name,
-                                          common.pprint_commas(args))
+            return f'nsimd::{self.name}({common.pprint_commas(args)})'
+
         def code_ptr_step(self, typ, simd):
-            return 'nsimd::len(nsimd::pack<{}, {}, nsimd::{}>())'.format(typ, unroll, simd)
+            return f'nsimd::len(nsimd::pack<{typ}, {unroll}, nsimd::{simd}>())'
+
+
     return InlineNSIMDUnrolledFun()
 
 def fun_from_sig(from_sig):
-    class InlineFun(operators.Operator, BenchOperatorWithNoMakers,
-                    metaclass=dummy):
+
+
+
+    class InlineFun(operators.Operator, BenchOperatorWithNoMakers, metaclass=dummy):
         signature = from_sig
         def code_call(self, typ, args):
-            return '{}({})'.format(self.name, common.pprint_commas(args))
+            return f'{self.name}({common.pprint_commas(args)})'
+
+
     return InlineFun()
 
 def std_fun_from_sig(from_sig):
     return fun_from_sig(from_sig)
 
 def std_operator_from_sig(from_sig, op):
-    class InlineStdOperatorFun(operators.Operator, BenchOperatorWithNoMakers,
-                               metaclass=dummy):
+
+
+
+    class InlineStdOperatorFun(operators.Operator, BenchOperatorWithNoMakers, metaclass=dummy):
         __metaclass__ = dummy
         signature = from_sig
         operator = op
         def code_call(self, typ, args):
             if len(args) == 1:
-                return '{}({})'.format(self.operator, args[0])
+                return f'{self.operator}({args[0]})'
             elif len(args) == 2:
-                return '{} {} {}'.format(args[0], self.operator, args[1])
+                return f'{args[0]} {self.operator} {args[1]}'
             else:
                 raise BenchError('std:: operators requires 1 or 2 arguments!')
+
+
     return InlineStdOperatorFun()
 
 def cpu_fun_from_sig(from_sig):
-    class InlineCPUFun(operators.Operator, BenchOperatorWithNoMakers,
-                       metaclass=dummy):
+
+
+
+    class InlineCPUFun(operators.Operator, BenchOperatorWithNoMakers, metaclass=dummy):
         signature = from_sig
         def code_call(self, typ, args):
-            return 'nsimd::{}({}, {}(), nsimd::cpu())'. \
-                   format(self.name, common.pprint_commas(args), typ)
+            return f'nsimd::{self.name}({common.pprint_commas(args)}, {typ}(), nsimd::cpu())'
+
+
     return InlineCPUFun()
 
 def sanitize_fun_name(name):
@@ -657,10 +669,10 @@ def sanitize_fun_name(name):
 # Code
 
 def code_cast(typ, expr):
-    return '({})({})'.format(typ, expr)
+    return f'({typ})({expr})'
 
 def code_cast_ptr(typ, expr):
-    return code_cast(typ + '*', expr)
+    return code_cast(f'{typ}*', expr)
 
 # -----------------------------------------------------------------------------
 # Globals
@@ -673,19 +685,20 @@ _lang = 'cxx_adv'
 
 def TODO(f):
     if _opts.verbose:
-        common.myprint(opts, '@@ TODO: ' + f.name)
+        common.myprint(opts, f'@@ TODO: {f.name}')
 
 def gen_filename(f, simd, typ):
     ## Retrieve directory from global options
     benches_dir = common.mkdir_p(os.path.join(_opts.benches_dir, _lang))
     ## Generate path (composed from: function name + type + extension)
-    return os.path.join(benches_dir, '{}.{}.{}.{}'.format(
-        f.name, simd, typ, common.ext_from_lang(_lang)))
+    return os.path.join(
+        benches_dir, f'{f.name}.{simd}.{typ}.{common.ext_from_lang(_lang)}'
+    )
 
 def gen_bench_name(category, name, unroll=None):
-    bench_name = '{}_{}'.format(category, name)
+    bench_name = f'{category}_{name}'
     if unroll:
-        bench_name += '_unroll{}'.format(unroll)
+        bench_name += f'_unroll{unroll}'
     return bench_name
 
 def gen_bench_from_code(f, typ, code, bench_with_timestamp):
@@ -803,8 +816,8 @@ def gen_bench_info_from(f, simd, typ):
         if p.is_volatile():
             qualifiers += 'volatile '
         bench_args_init.append('make_data(sz, &rand_param{n})'.format(n=i))
-        bench_args_decl.append('{} {}* _{}'.format(qualifiers, typ, i))
-        bench_args_call.append(p.code_load(simd, typ, '_{} + i'.format(i)))
+        bench_args_decl.append(f'{qualifiers} {typ}* _{i}')
+        bench_args_call.append(p.code_load(simd, typ, f'_{i} + i'))
     ## Generate code for bench (using function return type)
     r = type_of(f.get_return())
     bench_call = r.code_store(simd, typ, '_r + i',
@@ -937,9 +950,9 @@ def gen_bench_from_basic_fun(f, simd, typ, category, unroll=None):
             )
 
 def gen_code(f, simd, typ, category):
-    code = None
     if f.returns_any_type:
         return TODO(f)
+    code = None
     ## TODO: We have to refactor this, it's annoying to add every possible signatures...
     if f.match_sig('v * v v') or f.match_sig('v * v v v') \
         or f.match_sig('l * v v') or f.match_sig('l * l l') \
@@ -986,8 +999,7 @@ def gen_code(f, simd, typ, category):
     if f.match_sig('v * v p'):
         return TODO(f)
     if code is None:
-        raise BenchError('Unable to generate bench for signature: ' + \
-                         f.signature)
+        raise BenchError(f'Unable to generate bench for signature: {f.signature}')
     return code
 
 def gen_bench_unrolls(f, simd, typ, category):
@@ -1003,10 +1015,10 @@ def gen_bench_against(f, simd, typ, against):
     code = ''
     # "against" dict looks like: { simd: { type: { name: sig } } }
     for s in [simd, '*']:
-        if not s in against:
+        if s not in against:
             continue
         for t in [typ, '*']:
-            if not t in against[s]:
+            if t not in against[s]:
                 continue
             for category, f in against[s][t].items():
                 # Allow function to be simple str (you use this most of the
@@ -1088,20 +1100,21 @@ def gen_bench_with_timestamp(f, simd, typ, category, unroll=None):
     return code
 
 def gen_bench_unrolls_with_timestamp(f, simd, typ, category):
-    code = ''
-    for unroll in [2, 3, 4]:
-        code += gen_bench_with_timestamp(f, simd, typ, category=category,
-                                         unroll=unroll)
-    return code
+    return ''.join(
+        gen_bench_with_timestamp(
+            f, simd, typ, category=category, unroll=unroll
+        )
+        for unroll in [2, 3, 4]
+    )
 
 def gen_bench_against_with_timestamp(f, simd, typ, against):
     code = ''
     # "against" dict looks like: { simd: { type: { name: sig } } }
     for s in [simd, '*']:
-        if not s in against:
+        if s not in against:
             continue
         for t in [typ, '*']:
-            if not t in against[s]:
+            if t not in against[s]:
                 continue
             for category, f in against[s][t].items():
                 # Allow function to be simple str (you use this most of the
@@ -1132,7 +1145,9 @@ def gen_bench(f, simd, typ):
     bench += gen_bench_against(f, simd, typ, f.bench_against_libs())
     ## bench_with_timestamp
     bench_with_timestamp = ''
-    bench_with_timestamp += 'std::map<std::string, std::pair<' + typ + ', double>> sums;' + '\n'
+    bench_with_timestamp += (
+        f'std::map<std::string, std::pair<{typ}, double>> sums;' + '\n'
+    )
     bench_with_timestamp += 'size_t const nb_runs = 10 * 1000;' + '\n'
     bench_with_timestamp += gen_bench_against_with_timestamp(f, 'cpu', typ, f.bench_against_cpu())
     bench_with_timestamp += gen_bench_with_timestamp(f, simd, typ, category)
@@ -1183,7 +1198,7 @@ def doit(opts):
     for f in functions.values():
         if not f.do_bench:
             if opts.verbose:
-                common.myprint(opts, 'Skipping bench: {}'.format(f.name))
+                common.myprint(opts, f'Skipping bench: {f.name}')
             continue
         # WE MUST GENERATE CODE FOR EACH SIMD EXTENSION AS OTHER LIBRARY
         # USUALLY DO NOT PROPOSE A GENERIC INTERFACE

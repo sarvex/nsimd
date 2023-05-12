@@ -27,13 +27,10 @@ import common
 def get_filename(opts, op, lf, rt):
     tests_dir = os.path.join(opts.tests_dir, "modules/fixed_point")
     common.mkdir_p(tests_dir)
-    filename = os.path.join(tests_dir, '{}.fp_{}_{}.cpp'.format(op, lf, rt))
+    filename = os.path.join(tests_dir, f'{op}.fp_{lf}_{rt}.cpp')
     if os.path.exists(filename):
         os.remove(filename)
-    if common.can_create_filename(opts, filename):
-        return filename
-    else:
-        return None
+    return filename if common.can_create_filename(opts, filename) else None
 
 includes = """
 #include <string.h>
@@ -168,7 +165,7 @@ def gen_arithmetic_ops_tests(lf, rt, opts):
             op_name=op_name, op_val=op_val, lf=lf, rt=rt,
             includes=includes, decls=decls)
         filename = get_filename(opts, op_name, lf, rt)
-        if filename == None:
+        if filename is None:
             continue
         with common.open_utf8(opts, filename) as fp:
             fp.write(content_src)
@@ -231,7 +228,7 @@ def gen_minmax_ops_tests(lf, rt, opts):
             op_name=op_name, lf=lf, rt=rt,
             includes=includes, decls=decls)
         filename = get_filename(opts, op_name, lf, rt)
-        if filename == None:
+        if filename is None:
             continue
         with common.open_utf8(opts, filename) as fp:
             fp.write(content_src)
@@ -306,7 +303,7 @@ def gen_ternary_ops_tests(lf, rt, opts):
             op_name=op_name, check_statement=statement.format(lf=lf, rt=rt),
             lf=lf, rt=rt,includes=includes, decls=decls)
         filename = get_filename(opts, op_name, lf, rt)
-        if filename == None:
+        if filename is None:
             continue
         with common.open_utf8(opts, filename) as fp:
             fp.write(content_src)
@@ -377,7 +374,7 @@ def gen_math_functions_tests(lf, rt, opts):
                                                 ref_op_name=ref_op_name,
                                                 includes=includes, decls=decls)
         filename = get_filename(opts, op_name, lf, rt)
-        if filename == None:
+        if filename is None:
             continue
         with common.open_utf8(opts, filename) as fp:
             fp.write(content_src)
@@ -439,7 +436,7 @@ def gen_comparison_tests(lf, rt, opts):
             op_name=op_name, op_val=op_val, lf=lf, rt=rt,
             includes=includes, decls=decls)
         filename = get_filename(opts, op_name, lf, rt)
-        if filename == None:
+        if filename is None:
             continue
         with common.open_utf8(opts, filename) as fp:
             fp.write(content_src)
@@ -508,7 +505,7 @@ def gen_bitwise_ops_tests(lf, rt, opts):
             includes=includes, decls=decls,
             rand_statement="__gen_random_val<{lf}, {rt}>();".format(lf=lf, rt=rt),
             test_statement=s0, l="", term="b")
-        filename = get_filename(opts, op_name + "b", lf, rt)
+        filename = get_filename(opts, f"{op_name}b", lf, rt)
         if filename != None:
             with common.open_utf8(opts, filename) as fp:
                 fp.write(content_src)
@@ -520,7 +517,7 @@ def gen_bitwise_ops_tests(lf, rt, opts):
             includes=includes, decls=decls,
             rand_statement="(raw_t)(rand() % 2);".format(lf=lf, rt=rt),
             test_statement=s1, l="l", term="l")
-        filename = get_filename(opts, op_name + "l", lf, rt)
+        filename = get_filename(opts, f"{op_name}l", lf, rt)
         if filename != None:
             with common.open_utf8(opts, filename) as fp:
                 fp.write(content_src)
@@ -579,7 +576,7 @@ def gen_unary_ops_tests(lf, rt, opts):
             includes=includes, decls=decls,
             rand_statement="__gen_random_val<{lf}, {rt}>();".format(lf=lf,
             rt=rt), test_statement=s0, l="", term="b")
-        filename = get_filename(opts, op_name + "b", lf, rt)
+        filename = get_filename(opts, f"{op_name}b", lf, rt)
         if filename != None:
             with common.open_utf8(opts, filename) as fp:
                 fp.write(content_src)
@@ -591,7 +588,7 @@ def gen_unary_ops_tests(lf, rt, opts):
             includes=includes, decls=decls,
             rand_statement="(raw_t)(rand() % 2);".format(lf=lf, rt=rt),
             test_statement=s1, l="l", term="l")
-        filename = get_filename(opts, op_name + "l", lf, rt)
+        filename = get_filename(opts, f"{op_name}l", lf, rt)
         if filename != None:
             with common.open_utf8(opts, filename) as fp:
                 fp.write(content_src)
@@ -649,7 +646,7 @@ def gen_if_else_tests(lf, rt, opts):
     content_src = if_else_test_template.format(
         lf=lf, rt=rt, includes=includes, decls=decls)
     filename = get_filename(opts, "if_else", lf, rt)
-    if filename == None:
+    if filename is None:
         return
     with common.open_utf8(opts, filename) as fp:
         fp.write(content_src)

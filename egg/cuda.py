@@ -21,7 +21,7 @@
 import common
 import scalar
 
-fmtspec = dict()
+fmtspec = {}
 
 # -----------------------------------------------------------------------------
 # NVIDIA doc on f16 can be found at
@@ -55,15 +55,15 @@ def get_impl_f16(operator, totyp, typ):
         # Some f16 functions are not prefixed by `__`
         not_prefixed = ['ceil', 'floor', 'trunc', 'sqrt']
         if operator.name in not_prefixed:
-            arch53_code = 'return h{}({});'.format(operator.name, args)
+            arch53_code = f'return h{operator.name}({args});'
         else:
-            arch53_code = 'return __h{}({});'.format(operator.name, args)
+            arch53_code = f'return __h{operator.name}({args});'
     args = ', '.join(['__half2float({{in{}}})'.format(i).format(**fmtspec) \
                       for i in range(len(operator.params[1:]))])
     if operator.params[0] == 'l':
-        emul = 'return gpu_{}({});'.format(operator.name, args)
+        emul = f'return gpu_{operator.name}({args});'
     else:
-        emul = 'return __float2half(gpu_{}({}));'.format(operator.name, args)
+        emul = f'return __float2half(gpu_{operator.name}({args}));'
     return '''#if __CUDA_ARCH__ >= 530
                 {arch53_code}
               #else

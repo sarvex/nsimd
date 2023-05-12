@@ -169,19 +169,21 @@ def get_type(param, return_typ=False):
 
 def gen_decl(op):
     sig = '{}{} {{}}({});'.format(
-            'template <typename T> ' \
-                if 'v' not in op.params[1:] and \
-                   'l' not in op.params[1:] else '',
-            get_type(op.params[0], True),
-            ', '.join(['{} {}'.format(
-                               get_type(op.params[i + 1]),
-                                        common.get_arg(i)) \
-                                        for i in range(len(op.params[1:]))])
-          )
+        'template <typename T> '
+        if 'v' not in op.params[1:] and 'l' not in op.params[1:]
+        else '',
+        get_type(op.params[0], True),
+        ', '.join(
+            [
+                f'{get_type(op.params[i + 1])} {common.get_arg(i)}'
+                for i in range(len(op.params[1:]))
+            ]
+        ),
+    )
     ret = 'namespace nsimd {\n' \
           'namespace fixed_point {\n\n' + sig.format(op.name) + '\n\n'
     if op.cxx_operator != None:
-        ret += sig.format('operator' + op.cxx_operator) + '\n\n'
+        ret += sig.format(f'operator{op.cxx_operator}') + '\n\n'
     ret += '} // namespace fixed_point\n' \
            '} // namespace nsimd'
     return ret
@@ -189,7 +191,7 @@ def gen_decl(op):
 # -----------------------------------------------------------------------------
 
 def gen_api(opts, op_list):
-    api = dict()
+    api = {}
     for _, operator in operators.operators.items():
         if operator.name not in op_list:
             continue
@@ -205,11 +207,11 @@ def gen_api(opts, op_list):
         for c, ops in api.items():
             if len(ops) == 0:
                 continue
-            fout.write('\n## {}\n\n'.format(c.title))
+            fout.write(f'\n## {c.title}\n\n')
             for op in ops:
-                fout.write('- [{} ({})](module_fixed_point_api_{}.md)\n'. \
-                           format(op.full_name, op.name,
-                                  common.to_filename(op.name)))
+                fout.write(
+                    f'- [{op.full_name} ({op.name})](module_fixed_point_api_{common.to_filename(op.name)}.md)\n'
+                )
 
 # -----------------------------------------------------------------------------
 

@@ -32,7 +32,7 @@ the use of data buffers in a portable way for systems with CPUs only and
 for systems with CPUs and GPUs.'''
 
 def doc_menu():
-    return dict()
+    return {}
 
 # -----------------------------------------------------------------------------
 

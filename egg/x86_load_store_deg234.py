@@ -550,38 +550,8 @@ def load4_sse(simd_ext, typ, align, fmtspec2):
     fmtspec = fmtspec2.copy()
     fmtspec['load_v0v1v2v3'] = get_load_v0v1v2v3('sse', typ, align, fmtspec)
     if typ in ['i8', 'u8']:
-        if simd_ext == 'sse42':
-            return \
+        return \
             '''nsimd_sse42_v{typ}x4 ret;
-               {load_v0v1v2v3}
-               __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2,
-                                           13,  9, 5, 1, 12,  8, 4, 0);
-               __m128d A1 = _mm_castsi128_pd(_mm_shuffle_epi8(v0, mask));
-               __m128d B1 = _mm_castsi128_pd(_mm_shuffle_epi8(v1, mask));
-               __m128d C1 = _mm_castsi128_pd(_mm_shuffle_epi8(v2, mask));
-               __m128d D1 = _mm_castsi128_pd(_mm_shuffle_epi8(v3, mask));
-
-               __m128 A2 = _mm_castpd_ps(_mm_shuffle_pd(A1, B1,
-                                                        _MM_SHUFFLE2(0, 0)));
-               __m128 A3 = _mm_castpd_ps(_mm_shuffle_pd(C1, D1,
-                                                        _MM_SHUFFLE2(0, 0)));
-               __m128 C2 = _mm_castpd_ps(_mm_shuffle_pd(A1, B1,
-                                                        _MM_SHUFFLE2(1, 1)));
-               __m128 C3 = _mm_castpd_ps(_mm_shuffle_pd(C1, D1,
-                                                        _MM_SHUFFLE2(1, 1)));
-
-               ret.v0 = _mm_castps_si128(_mm_shuffle_ps(
-                            A2, A3, _MM_SHUFFLE(2, 0, 2, 0)));
-               ret.v1 = _mm_castps_si128(_mm_shuffle_ps(
-                            A2, A3, _MM_SHUFFLE(3, 1, 3, 1)));
-               ret.v2 = _mm_castps_si128(_mm_shuffle_ps(
-                            C2, C3, _MM_SHUFFLE(2, 0, 2, 0)));
-               ret.v3 = _mm_castps_si128(_mm_shuffle_ps(
-                            C2, C3, _MM_SHUFFLE(3, 1, 3, 1)));
-               return ret;'''.format(**fmtspec)
-        else:
-            return \
-            '''nsimd_sse2_v{typ}x4 ret;
                {load_v0v1v2v3}
                __m128i A1 = _mm_unpacklo_epi8(v0, v2);
                __m128i B1 = _mm_unpackhi_epi8(v0, v2);
@@ -1131,15 +1101,8 @@ def store4(simd_ext, typ, align, fmtspec2, v0, v1, v2, v3):
     fmtspec['v1'] = v1
     fmtspec['v2'] = v2
     fmtspec['v3'] = v3
-    if typ in ['f32', 'f64']:
-        return \
+    return \
         '''{store}({in0}, {v0});
-           {store}({in0} + {le}, {v1});
-           {store}({in0} + (2 * {le}), {v2});
-           {store}({in0} + (3 * {le}), {v3});'''.format(**fmtspec)
-    else:
-        return \
-        '''{store}(({styp} *){in0}, {v0});
            {store}(({styp} *){in0} + 1, {v1});
            {store}(({styp} *){in0} + 2, {v2});
            {store}(({styp} *){in0} + 3, {v3});'''.format(**fmtspec)
@@ -1581,51 +1544,8 @@ def load3_sse(simd_ext, typ, align, fmtspec2):
     fmtspec['load_v0v1v2'] = get_load_v0v1v2('sse', typ, align, fmtspec)
     fmtspec['a'] = 'a' if align else 'u'
     if typ in ['i8', 'u8']:
-        if simd_ext == 'sse42':
-            return \
+        return \
             '''nsimd_sse42_v{typ}x3 ret;
-               {load_v0v1v2}
-
-               __m128i A1_mask = _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1,
-                                              -1, -1, 15, 12,  9,  6,  3,  0);
-               __m128i A2_mask = _mm_set_epi8(-1, -1, -1, -1, -1, 14, 11,  8,
-                                               5,  2, -1, -1, -1, -1, -1, -1);
-               __m128i A3_mask = _mm_set_epi8(13, 10,  7,  4,  1, -1, -1, -1,
-                                              -1, -1, -1, -1, -1, -1, -1, -1);
-               __m128i A4 = _mm_shuffle_epi8(v0, A1_mask);
-               __m128i A5 = _mm_shuffle_epi8(v1, A2_mask);
-               __m128i A6 = _mm_shuffle_epi8(v2, A3_mask);
-               A4 = _mm_or_si128(A4, A5);
-               ret.v0 = _mm_or_si128(A4, A6);
-
-               __m128i B1_mask = _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1,
-                                              -1, -1, -1, 13, 10,  7,  4,  1);
-               __m128i B2_mask = _mm_set_epi8(-1, -1, -1, -1, -1, 15, 12,  9,
-                                               6,  3,  0, -1, -1, -1, -1, -1);
-               __m128i B3_mask = _mm_set_epi8(14, 11,  8,  5,  2, -1, -1, -1,
-                                              -1, -1, -1, -1, -1, -1, -1, -1);
-               __m128i B4 = _mm_shuffle_epi8(v0, B1_mask);
-               __m128i B5 = _mm_shuffle_epi8(v1, B2_mask);
-               __m128i B6 = _mm_shuffle_epi8(v2, B3_mask);
-               B4 = _mm_or_si128(B4, B5);
-               ret.v1 = _mm_or_si128(B4, B6);
-
-               __m128i C1_mask = _mm_set_epi8(-1, -1, -1, -1, -1, -1, -1, -1,
-                                              -1, -1, -1, 14, 11,  8,  5,  2);
-               __m128i C2_mask = _mm_set_epi8(-1, -1, -1, -1, -1, -1, 13, 10,
-                                               7,  4,  1, -1, -1, -1, -1, -1);
-               __m128i C3_mask = _mm_set_epi8(15, 12,  9,  6,  3,  0, -1, -1,
-                                              -1, -1, -1, -1, -1, -1, -1, -1);
-               __m128i C4 = _mm_shuffle_epi8(v0, C1_mask);
-               __m128i C5 = _mm_shuffle_epi8(v1, C2_mask);
-               __m128i C6 = _mm_shuffle_epi8(v2, C3_mask);
-               C4 = _mm_or_si128(C4, C5);
-               ret.v2 = _mm_or_si128(C4, C6);
-
-               return ret;'''.format(**fmtspec)
-        else:
-            return \
-            '''nsimd_sse2_v{typ}x3 ret;
                {load_v0v1v2}
 
                __m128i A0 = v0;
@@ -1735,14 +1655,8 @@ def store3(simd_ext, typ, align, fmtspec2, v0, v1, v2):
     fmtspec['v0'] = v0
     fmtspec['v1'] = v1
     fmtspec['v2'] = v2
-    if typ in ['f32', 'f64']:
-        return \
+    return \
         '''{store}({in0}, {v0});
-           {store}({in0} + {le}, {v1});
-           {store}({in0} + (2 * {le}), {v2});'''.format(**fmtspec)
-    else:
-        return \
-        '''{store}(({styp} *){in0}, {v0});
            {store}(({styp} *){in0} + 1, {v1});
            {store}(({styp} *){in0} + 2, {v2});'''.format(**fmtspec)
 

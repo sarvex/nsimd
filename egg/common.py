@@ -50,7 +50,7 @@ import math
 def myprint(opts, obj):
     if opts.list_files:
         return
-    print('-- {}'.format(obj))
+    print(f'-- {obj}')
 
 # -----------------------------------------------------------------------------
 # check if file exists
@@ -60,7 +60,7 @@ def can_create_filename(opts, filename):
         print(filename)
         return False
     if opts.verbose:
-        sys.stdout.write('-- {}: '.format(filename))
+        sys.stdout.write(f'-- {filename}: ')
     if os.path.isfile(filename) and not opts.force:
         if opts.verbose:
             sys.stdout.write('skipping\n')
@@ -125,8 +125,9 @@ SOFTWARE.
 
 '''.format(begin_comment, end_comment))
 
-        fout.write('{} This file has been auto-generated {}\n\n'.\
-            format(begin_comment, end_comment))
+        fout.write(
+            f'{begin_comment} This file has been auto-generated {end_comment}\n\n'
+        )
 
     return io.open(filename, mode='a', encoding='utf-8')
 
@@ -137,7 +138,6 @@ def clang_format(opts, filename, cuda=False):
     with io.open(filename, 'a', encoding='utf-8') as fout:
         fout.write('\n')
     if not opts.enable_clang_format:
-        # TODO: not sure if needed to implement a smarter call to clang-format
         if cuda:
             os.system('clang-format -style="{{ Standard: Cpp11 }}" -i {}'. \
                       format(filename))
@@ -145,7 +145,7 @@ def clang_format(opts, filename, cuda=False):
             os.system('clang-format -style="{{ Standard: Cpp03 }}" -i {}'. \
                       format(filename))
     if cuda:
-        shutil.copyfile(filename, filename[:-4] + '.cu')
+        shutil.copyfile(filename, f'{filename[:-4]}.cu')
 
 # -----------------------------------------------------------------------------
 # Not implemented response
@@ -224,7 +224,7 @@ iutypes = itypes + utypes
 types = ftypes + iutypes
 
 def logical(typ):
-    return 'l{}'.format(typ)
+    return f'l{typ}'
 
 signed_type = {
     'i8': 'i8',
@@ -285,8 +285,8 @@ def get_simds_deps_from_opts(opts):
     return simds
 
 def bitsize(typ):
-    if not (typ in types):
-        raise ValueError('Unknown type "{}"'.format(typ))
+    if typ not in types:
+        raise ValueError(f'Unknown type "{typ}"')
     return int(typ[1:])
 
 def sizeof(typ):
@@ -309,30 +309,28 @@ def ilog2(x):
 def get_output_types(from_typ, output_to):
     if output_to == OUTPUT_TO_SAME_TYPE:
         return [from_typ]
-    else:
-        nbits = from_typ[1:]
-        if output_to == OUTPUT_TO_SAME_SIZE_TYPES:
-            if from_typ in ['i8' ,'u8']:
-                return ['i8', 'u8']
-            else:
-                return ['i' + nbits, 'u' + nbits, 'f' + nbits]
-        elif output_to == OUTPUT_TO_UP_TYPES:
-            if nbits == '64':
-                raise ValueError('No uptype for ' + from_typ)
-            else:
-                n = str(int(nbits) * 2)
-                return ['i' + n, 'u' + n, 'f' + n]
-        elif output_to == OUTPUT_TO_DOWN_TYPES:
-            n = str(int(nbits) // 2)
-            if nbits == '8':
-                raise ValueError('No downtype for ' + from_typ)
-            elif nbits == '16':
-                return ['i' + n, 'u' + n]
-            else:
-                return ['i' + n, 'u' + n, 'f' + n]
+    nbits = from_typ[1:]
+    if output_to == OUTPUT_TO_SAME_SIZE_TYPES:
+        return (
+            ['i8', 'u8']
+            if from_typ in ['i8', 'u8']
+            else [f'i{nbits}', f'u{nbits}', f'f{nbits}']
+        )
+    elif output_to == OUTPUT_TO_UP_TYPES:
+        if nbits == '64':
+            raise ValueError(f'No uptype for {from_typ}')
+        n = str(int(nbits) * 2)
+        return [f'i{n}', f'u{n}', f'f{n}']
+    elif output_to == OUTPUT_TO_DOWN_TYPES:
+        n = str(int(nbits) // 2)
+        if nbits == '16':
+            return [f'i{n}', f'u{n}']
+        elif nbits == '8':
+            raise ValueError(f'No downtype for {from_typ}')
         else:
-            raise ValueError('Invalid argument for "output_to": {}'. \
-                             format(output_to))
+            return [f'i{n}', f'u{n}', f'f{n}']
+    else:
+        raise ValueError(f'Invalid argument for "output_to": {output_to}')
 
 # -----------------------------------------------------------------------------
 # mkdir -p (avoid a dependency for just one function)
@@ -350,10 +348,7 @@ def mkdir_p(path):
 # Replacement of enumerate
 
 def enum(l):
-    ret = []
-    for i in range(0, len(l)):
-        ret.append([i, l[i]])
-    return ret
+    return [[i, l[i]] for i in range(0, len(l))]
 
 # -----------------------------------------------------------------------------
 # List of supported SIMD operators/functions
@@ -382,23 +377,23 @@ def get_one_type_generic(param, typ):
     elif param == 's':
         return typ
     elif param == '*':
-        return '{}*'.format(typ)
+        return f'{typ}*'
     elif param == 'c*':
-        return '{} const*'.format(typ)
+        return f'{typ} const*'
     elif param == 'vi':
-        return 'vi{}'.format(typ[1:])
+        return f'vi{typ[1:]}'
     elif param == 'v':
-        return 'v{}'.format(typ)
+        return f'v{typ}'
     elif param == 'vx2':
-        return 'v{}x2'.format(typ)
+        return f'v{typ}x2'
     elif param == 'vx3':
-        return 'v{}x3'.format(typ)
+        return f'v{typ}x3'
     elif param == 'vx4':
-        return 'v{}x4'.format(typ)
+        return f'v{typ}x4'
     elif param == 'l':
-        return 'vl{}'.format(typ)
+        return f'vl{typ}'
     else:
-        raise ValueError("Unknown param '{}'".format(param))
+        raise ValueError(f"Unknown param '{param}'")
 
 def get_one_type_specific(param, ext, typ):
     if param == '_':
@@ -408,23 +403,23 @@ def get_one_type_specific(param, ext, typ):
     elif param == 's':
         return typ
     elif param == '*':
-        return '{}*'.format(typ)
+        return f'{typ}*'
     elif param == 'c*':
-        return '{} const*'.format(typ)
+        return f'{typ} const*'
     elif param == 'vi':
-        return 'nsimd_{}_vi{}'.format(ext, typ[1:])
+        return f'nsimd_{ext}_vi{typ[1:]}'
     elif param == 'v':
-        return 'nsimd_{}_v{}'.format(ext, typ)
+        return f'nsimd_{ext}_v{typ}'
     elif param == 'vx2':
-        return 'nsimd_{}_v{}x2'.format(ext, typ)
+        return f'nsimd_{ext}_v{typ}x2'
     elif param == 'vx3':
-        return 'nsimd_{}_v{}x3'.format(ext, typ)
+        return f'nsimd_{ext}_v{typ}x3'
     elif param == 'vx4':
-        return 'nsimd_{}_v{}x4'.format(ext, typ)
+        return f'nsimd_{ext}_v{typ}x4'
     elif param == 'l':
-        return 'nsimd_{}_vl{}'.format(ext, typ)
+        return f'nsimd_{ext}_vl{typ}'
     else:
-        raise ValueError("Unknown param '{}'".format(param))
+        raise ValueError(f"Unknown param '{param}'")
 
 def get_one_type_pack(param, inout, N):
     if param == '_':
@@ -439,21 +434,22 @@ def get_one_type_pack(param, inout, N):
         return 'T'
     if param in ['v', 'vx2', 'vx3', 'vx4']:
         if inout == 0:
-            return 'pack<T, {}, SimdExt> const&'.format(N)
+            return f'pack<T, {N}, SimdExt> const&'
         else:
-            return 'pack<T, {}, SimdExt>'.format(N)
-    if param == 'vi':
-        if inout == 0:
-            return 'pack<typename traits<T>::itype, {}, SimdExt> const&'. \
-                   format(N)
-        else:
-            return 'pack<typename traits<T>::itype, {}, SimdExt>'.format(N)
+            return f'pack<T, {N}, SimdExt>'
     if param == 'l':
-        if inout == 0:
-            return 'packl<T, {}, SimdExt> const&'.format(N)
-        else:
-            return 'packl<T, {}, SimdExt>'.format(N)
-    raise ValueError("Unknown param '{}'".format(param))
+        return (
+            f'packl<T, {N}, SimdExt> const&'
+            if inout == 0
+            else f'packl<T, {N}, SimdExt>'
+        )
+    elif param == 'vi':
+        return (
+            f'pack<typename traits<T>::itype, {N}, SimdExt> const&'
+            if inout == 0
+            else f'pack<typename traits<T>::itype, {N}, SimdExt>'
+        )
+    raise ValueError(f"Unknown param '{param}'")
 
 def get_one_type_generic_adv_cxx(param, T, N):
     if param == '_':
@@ -461,25 +457,25 @@ def get_one_type_generic_adv_cxx(param, T, N):
     elif param == 'p':
         return 'int'
     elif param == '*':
-        return '{}*'.format(T)
+        return f'{T}*'
     elif param == 'c*':
-        return '{} const*'.format(T)
+        return f'{T} const*'
     elif param == 's':
         return T
     elif param == 'v':
-        return 'pack<{}, {}, SimdExt>'.format(T, N)
+        return f'pack<{T}, {N}, SimdExt>'
     elif param == 'vi':
-        return 'pack<i{}, {}, SimdExt>'.format(T[1:], N)
+        return f'pack<i{T[1:]}, {N}, SimdExt>'
     elif param == 'vx2':
-        return 'packx2<{}, {}, SimdExt>'.format(T, N)
+        return f'packx2<{T}, {N}, SimdExt>'
     elif param == 'vx3':
-        return 'packx3<{}, {}, SimdExt>'.format(T, N)
+        return f'packx3<{T}, {N}, SimdExt>'
     elif param == 'vx4':
-        return 'packx4<{}, {}, SimdExt>'.format(T, N)
+        return f'packx4<{T}, {N}, SimdExt>'
     elif param == 'l':
-        return 'packl<{}, {}, SimdExt>'.format(T, N)
+        return f'packl<{T}, {N}, SimdExt>'
     else:
-        raise ValueError('Unknown param: "{}"'.format(param))
+        raise ValueError(f'Unknown param: "{param}"')
 
 def get_one_type_scalar(param, t):
     if param == '_':
@@ -489,13 +485,17 @@ def get_one_type_scalar(param, t):
     elif param in ['s', 'v']:
         return t
     else:
-        raise ValueError('Unknown param: "{}"'.format(param))
+        raise ValueError(f'Unknown param: "{param}"')
 
 def get_first_discriminating_type(params):
-    for i in range(len(params)):
-        if params[i] in ['v', 'l', 'vx2', 'vx3', 'vx4']:
-            return i
-    return -1
+    return next(
+        (
+            i
+            for i in range(len(params))
+            if params[i] in ['v', 'l', 'vx2', 'vx3', 'vx4']
+        ),
+        -1,
+    )
 
 # -----------------------------------------------------------------------------
 # Formats
@@ -507,7 +507,7 @@ def pprint_commas(what):
     return ', '.join(what)
 
 def pprint_includes(what):
-    return pprint_lines('#include {}'.format(i) for i in what)
+    return pprint_lines(f'#include {i}' for i in what)
 
 # -----------------------------------------------------------------------------
 # Function parsing signatures
@@ -515,11 +515,7 @@ def pprint_includes(what):
 def parse_signature(signature):
     l = signature.split(' ');
     name = l[1]
-    if len(l) > 2:
-        params = [l[0]] + l[2:]
-    else:
-        params = [l[0]]
-
+    params = [l[0]] + l[2:] if len(l) > 2 else [l[0]]
     return (name, params)
 
 # -----------------------------------------------------------------------------
@@ -528,13 +524,13 @@ def parse_signature(signature):
 def get_platforms(opts):
     if opts.platforms_list != None:
         return opts.platforms_list
-    ret = dict()
+    ret = {}
     path = opts.script_dir
-    myprint(opts, 'Searching platforms in "{}"'.format(path))
+    myprint(opts, f'Searching platforms in "{path}"')
     for mod_file in os.listdir(path):
-        if mod_file[-3:] == '.py' and mod_file[0:9] == 'platform_':
+        if mod_file[-3:] == '.py' and mod_file[:9] == 'platform_':
             mod_name = mod_file[:-3]
-            myprint(opts, 'Found new platform: {}'.format(mod_name[9:]))
+            myprint(opts, f'Found new platform: {mod_name[9:]}')
             ret[mod_name[9:]] = __import__(mod_name)
     opts.platforms_list = ret
     return ret
@@ -545,17 +541,17 @@ def get_platforms(opts):
 def get_modules(opts):
     if opts.modules_list != None:
         return opts.modules_list
-    ret = dict()
+    ret = {}
     # We have one module by directory
     path = os.path.join(opts.script_dir, 'modules')
-    myprint(opts, 'Searching modules in "{}"'.format(path))
+    myprint(opts, f'Searching modules in "{path}"')
     for module_dir in os.listdir(path):
         if (not os.path.isdir(os.path.join(path, module_dir))) or \
            module_dir == '.' or module_dir == '..' or \
            (not os.path.exists(os.path.join(path, module_dir, 'hatch.py'))):
             continue
-        myprint(opts, 'Found new module: {}'.format(module_dir))
-        mod = __import__('modules.{}.hatch'.format(module_dir))
+        myprint(opts, f'Found new module: {module_dir}')
+        mod = __import__(f'modules.{module_dir}.hatch')
         ret[module_dir] = mod
     opts.modules_list = ret
     return ret
@@ -581,17 +577,14 @@ def ext_from_lang(lang):
     return 'c' if lang == 'c_base' else 'cpp'
 
 def nsimd_category(category):
-    return 'nsimd_' + category
+    return f'nsimd_{category}'
 
 # ------------------------------------------------------------------------------
 # Doc common
 
 def to_filename(op_name):
     valid = string.ascii_letters + string.digits
-    ret = ''
-    for c in op_name:
-        ret += '-' if c not in valid else c
-    return ret
+    return ''.join('-' if c not in valid else c for c in op_name)
 
 def get_markdown_dir(opts):
     return os.path.join(opts.script_dir, '..', 'doc', 'markdown')
@@ -600,15 +593,15 @@ def get_markdown_api_file(opts, name, module=''):
     root = get_markdown_dir(opts)
     op_name = to_filename(name)
     if module == '':
-        return os.path.join(root, 'api_{}.md'.format(op_name))
+        return os.path.join(root, f'api_{op_name}.md')
     else:
-        return os.path.join(root, 'module_{}_api_{}.md'.format(module, op_name))
+        return os.path.join(root, f'module_{module}_api_{op_name}.md')
 
 def get_markdown_file(opts, name, module=''):
     root =  get_markdown_dir(opts)
     op_name = to_filename(name)
     if module == '':
-        return os.path.join(root, '{}.md'.format(op_name))
+        return os.path.join(root, f'{op_name}.md')
     else:
-        return os.path.join(root, 'module_{}_{}.md'.format(module, op_name))
+        return os.path.join(root, f'module_{module}_{op_name}.md')
 

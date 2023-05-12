@@ -25,7 +25,7 @@ import collections
 
 # -----------------------------------------------------------------------------
 
-rand_functions = list()
+rand_functions = []
 
 
 class MAddToRands(type):
@@ -37,7 +37,7 @@ class MAddToRands(type):
 
 class Rand(object, metaclass=MAddToRands):
     def gen_function_name(self, nwords, word_size, nrounds):
-        return '{}_{}x{}_{}'.format(self.name, nwords, word_size, nrounds)
+        return f'{self.name}_{nwords}x{word_size}_{nrounds}'
 
     def gen_headers(self, opts):
         res = ''
@@ -45,7 +45,7 @@ class Rand(object, metaclass=MAddToRands):
         for word_size, nwords_nrounds in self.wordsize_nwords_nrounds.items():
             for nwords, list_nrounds in nwords_nrounds.items():
                 for nrounds in list_nrounds:
-                    res += self.gen_signature(nwords, word_size, nrounds)+';'
+                    res += f'{self.gen_signature(nwords, word_size, nrounds)};'
 
         return res
 
@@ -53,8 +53,7 @@ class Rand(object, metaclass=MAddToRands):
 
         key_size = self.get_key_size(nwords)
 
-        key_initialization = 'nsimd::packx{}<u{}> key_pack;'. \
-                format(key_size, word_size)
+        key_initialization = f'nsimd::packx{key_size}<u{word_size}> key_pack;'
         for i in range (0, key_size):
             key_initialization += '''
             i = {i};
@@ -64,25 +63,26 @@ class Rand(object, metaclass=MAddToRands):
             key_pack.v{i} = nsimd::loadu(&key[i*len], u{word_size}());
             '''.format(i=i, word_size=word_size)
 
-        input_initilization = \
-                'memset(in, 0, sizeof(u{}) * {} * ulen);\n'. \
-                format(word_size, nwords)
+        input_initilization = (
+            f'memset(in, 0, sizeof(u{word_size}) * {nwords} * ulen);\n'
+        )
         for i in range (0, nwords):
-            input_initilization += 'in_pack.v{} = nsimd::pack<u{}>(0);'. \
-                    format(i, word_size)
+            input_initilization += f'in_pack.v{i} = nsimd::pack<u{word_size}>(0);'
 
-        compare = ''
-        for i in range (0, nwords):
-            compare += '''
+        compare = ''.join(
+            '''
                 if (i=={i}) {{
                     nsimd::storeu(out_nsimd, out_pack.v{i});
                 }}
-                '''.format(i=i)
-
+                '''.format(
+                i=i
+            )
+            for i in range(0, nwords)
+        )
         l = 'll' if word_size == 64 else ''
         cast = '(nsimd_ulonglong)' if word_size == 64 else ''
 
-        res = '''
+        return '''
         #include <nsimd/modules/random/functions.hpp>
         #include "reference.hpp"
         #include <iostream>
@@ -175,14 +175,19 @@ class Rand(object, metaclass=MAddToRands):
 
           return res;
         }}
-        '''.format(function_name=self.gen_function_name(nwords, word_size,
-                   nrounds), word_size=word_size, key_size=key_size,
-                   nwords=nwords, key_initialization=key_initialization,
-                   nrounds=nrounds, input_initilization=input_initilization,
-                   compare=compare, l=l, name = self.name, cast=cast)
-
-        # Write file
-        return res
+        '''.format(
+            function_name=self.gen_function_name(nwords, word_size, nrounds),
+            word_size=word_size,
+            key_size=key_size,
+            nwords=nwords,
+            key_initialization=key_initialization,
+            nrounds=nrounds,
+            input_initilization=input_initilization,
+            compare=compare,
+            l=l,
+            name=self.name,
+            cast=cast,
+        )
 
 class Philox(Rand):
     name = 'philox'
@@ -618,7 +623,7 @@ def gen_functions(opts):
 
            ''')
 
-        out.write('{}\n\n'.format(common.hbar))
+        out.write(f'{common.hbar}\n\n')
         for func in rand_functions:
             out.write(func.gen_headers(opts))
             out.write(func.generate(opts))
@@ -675,8 +680,7 @@ def gen_doc(opts):
         for word_size, nwords_nrounds in func.wordsize_nwords_nrounds.items():
             for nwords, list_nrounds in nwords_nrounds.items():
                 for nrounds in list_nrounds:
-                    api += '- `' + func.gen_signature(nwords, word_size,
-                                                      nrounds) + '`;  \n'
+                    api += (f'- `{func.gen_signature(nwords, word_size, nrounds)}' + '`;  \n')
                     api += '  Returns a random number using the ' \
                            '{func_name} generator\n\n'. \
                            format(func_name=func.name)
@@ -708,7 +712,7 @@ they need two parameters:
         fout.write(res)
 
 def doc_menu():
-    return dict()
+    return {}
 
 # -----------------------------------------------------------------------------
 

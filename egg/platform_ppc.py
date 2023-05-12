@@ -36,9 +36,7 @@ fmtspec = {}
 def has_to_be_emulated(simd_ext, typ):
     if typ == 'f16':
         return True
-    if simd_ext == 'vmx' and typ in ['f64', 'i64', 'u64']:
-        return True
-    return False
+    return simd_ext == 'vmx' and typ in ['f64', 'i64', 'u64']
 
 # Returns the power pc type corresponding to the nsimd type
 def native_type(typ):
@@ -63,7 +61,7 @@ def native_type(typ):
     elif typ == 'f64':
         return '__vector double'
     else:
-        raise ValueError('Type "{}" not supported'.format(typ))
+        raise ValueError(f'Type "{typ}" not supported')
 
 # Returns the logical power pc type corresponding to the nsimd type
 def native_typel(typ):
@@ -76,7 +74,7 @@ def native_typel(typ):
     elif typ in ['f64', 'i64', 'u64']:
         return '__vector __bool long long'
     else:
-        raise ValueError('Type "{}" not supported'.format(typ))
+        raise ValueError(f'Type "{typ}" not supported')
 
 # Length of a vector with elements of type typ
 def get_len(typ):
@@ -127,8 +125,9 @@ def emulation_code(op, simd_ext, typ, params):
     elif simd_ext == 'vmx' and typ in ['f64', 'i64', 'u64']:
         return emulate_64(op, typ, params)
     else:
-        raise ValueError('Automatic emulation for {}/{}/{} is not supported'. \
-                         format(func, simd_ext, typ))
+        raise ValueError(
+            f'Automatic emulation for {func}/{simd_ext}/{typ} is not supported'
+        )
 
 def emulate_with_scalar(op, simd_ext, typ, params):
     def arg(param, i):
@@ -175,29 +174,29 @@ def get_simd_exts():
 
 def get_type(opts, simd_ext, typ, nsimd_typ):
     if simd_ext not in get_simd_exts():
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     if typ not in common.types:
-        raise ValueError('Unknown type "{}"'.format(typ))
+        raise ValueError(f'Unknown type "{typ}"')
     if typ == 'f16':
         struct = 'struct {__vector float v0; __vector float v1;}'
     elif simd_ext == 'vmx' and typ in ['i64', 'u64', 'f64']:
         struct = 'struct {{ {} v0; {} v1; }}'.format(typ, typ)
     else:
         struct = native_type(typ)
-    return 'typedef {} {};'.format(struct, nsimd_typ)
+    return f'typedef {struct} {nsimd_typ};'
 
 def get_logical_type(opts, simd_ext, typ, nsimd_typ):
     if simd_ext not in get_simd_exts():
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     if typ not in common.types:
-        raise ValueError('Unknown type "{}"'.format(typ))
+        raise ValueError(f'Unknown type "{typ}"')
     if typ == 'f16':
         struct = 'struct {__vector __bool int v0; __vector __bool int v1;}'
     elif simd_ext == 'vmx' and typ in ['i64', 'u64', 'f64']:
         struct = 'struct { u64 v0; u64 v1; }'
     else:
         struct = native_typel(typ)
-    return 'typedef {} {};'.format(struct, nsimd_typ)
+    return f'typedef {struct} {nsimd_typ};'
 
 def get_nb_registers(simd_ext):
     if simd_ext == 'vsx':
@@ -205,13 +204,13 @@ def get_nb_registers(simd_ext):
     elif simd_ext == 'vmx':
         return '32'
     else:
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
 
 def has_compatible_SoA_types(simd_ext):
     if simd_ext in get_simd_exts():
         return False
     else:
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
 
 def get_additional_include(func, platform, simd_ext):
     ret = '''#include <nsimd/cpu/cpu/{}.h>
@@ -230,7 +229,9 @@ def get_additional_include(func, platform, simd_ext):
                   #include <nsimd/ppc/{simd_ext}/set1.h>
                   #include <nsimd/ppc/{simd_ext}/{load}.h>
                   #include <nsimd/ppc/{simd_ext}/notl.h>
-                  '''.format(load='load' + func[5], **fmtspec)
+                  '''.format(
+            load=f'load{func[5]}', **fmtspec
+        )
 
     elif func in ['storelu']:
         ret += '''#include <nsimd/ppc/{simd_ext}/if_else1.h>
@@ -337,19 +338,17 @@ def printf2(*args0):
             if not DEBUG:
                 return func(*args)
             typ = ''
-            if 'typ' in func_args:
-                typ = func_args['typ']
-            else:
-                typ = func_args['from_typ']
+            typ = func_args['typ'] if 'typ' in func_args else func_args['from_typ']
             ret += 'int k;\n'
-            if func.__name__ == 'store1234' and typ in ['f64', 'i64', 'u64']:
-                ret += '''
+            if func.__name__ == 'store1234':
+                if typ in ['f64', 'i64', 'u64']:
+                    ret += '''
                        printf("element to store: %ld %ld", {in1}{suf0},
                               {in1}{suf1});
                        printf("\\n");
                        '''.format(**fmtspec, **get_suf64(typ))
-            elif func.__name__ == 'store1234' and typ[1:] == '32':
-                ret += '''
+                elif typ[1:] == '32':
+                    ret += '''
                        printf("element to store:");
                        for (k = 0; k < 4; k++) {{
                          printf(" %lx", {in1}[k]);
@@ -801,7 +800,7 @@ def store1234(simd_ext, typ, deg, aligned):
 # Length
 
 def len1(simd_ext, typ):
-    return 'return {};'.format(128 // int(typ[1:]))
+    return f'return {128 // int(typ[1:])};'
 
 # -----------------------------------------------------------------------------
 # Other helper functions
@@ -815,9 +814,8 @@ def simple_op2(op, simd_ext, typ):
 def binary_op2(op, simd_ext, typ):
     if has_to_be_emulated(simd_ext, typ):
         return emulation_code(op, simd_ext, typ, ['v', 'v', 'v'])
-    else:
-        ppcop = {'orb': 'or', 'xorb': 'xor', 'andb': 'and', 'andnotb': 'andc'}
-        return 'return vec_{op}({in0}, {in1});'.format(op=ppcop[op], **fmtspec)
+    ppcop = {'orb': 'or', 'xorb': 'xor', 'andb': 'and', 'andnotb': 'andc'}
+    return 'return vec_{op}({in0}, {in1});'.format(op=ppcop[op], **fmtspec)
 
 # Logical operators: and, or, xor, andnot
 def logical_op2(op, simd_ext, typ):
@@ -1381,11 +1379,10 @@ def upcvt1(simd_ext, from_typ, to_typ):
                   return ret;'''.format(sto_typ=from_typ[0] + to_typ[1:],
                                         **fmtspec)
     elif from_typ in ['u8', 'u16']:
-        mask='(i{})0x{}'.format(to_typ[1:], 'F' * (int(from_typ[1:]) // 4))
-        ppc_sto_typ = native_type('i' + to_typ[1:])
-        ppc_sfrom_typ = '({})'.format(native_type('i' + from_typ[1:]))
-        ppc_to_typ = '({})'.format(native_type(to_typ)) \
-                     if to_typ in common.utypes else ''
+        mask = f"(i{to_typ[1:]})0x{'F' * (int(from_typ[1:]) // 4)}"
+        ppc_sto_typ = native_type(f'i{to_typ[1:]}')
+        ppc_sfrom_typ = f"({native_type(f'i{from_typ[1:]}')})"
+        ppc_to_typ = f'({native_type(to_typ)})' if to_typ in common.utypes else ''
         return '''nsimd_{simd_ext}_v{to_typ}x2 ret;
                   {ppc_sto_typ} mask = vec_splats({mask});
                   ret.v0 = {ppc_to_typ}vec_and(
@@ -1396,8 +1393,7 @@ def upcvt1(simd_ext, from_typ, to_typ):
                                         ppc_sfrom_typ=ppc_sfrom_typ,
                                         ppc_to_typ=ppc_to_typ, **fmtspec)
     elif from_typ in ['i8', 'i16']:
-        ppc_to_typ = '({})'.format(native_type(to_typ)) \
-                     if to_typ in common.utypes else ''
+        ppc_to_typ = f'({native_type(to_typ)})' if to_typ in common.utypes else ''
         return '''nsimd_{simd_ext}_v{to_typ}x2 ret;
                   ret.v0 = {ppc_to_typ}vec_unpackh({in0});
                   ret.v1 = {ppc_to_typ}vec_unpackl({in0});
@@ -1539,13 +1535,14 @@ def to_mask(simd_ext, typ):
                   ret.v0 = (__vector float){in0}.v0;
                   ret.v1 = (__vector float){in0}.v1;
                   return ret;'''.format(**fmtspec)
-    if simd_ext == 'vmx' and typ in ['f64', 'i64']:
-        return '''nsimd_{simd_ext}_v{typ} ret;
+    if simd_ext == 'vmx':
+        if typ in ['f64', 'i64']:
+            return '''nsimd_{simd_ext}_v{typ} ret;
                   ret.v0 = nsimd_scalar_reinterpret_{typ}_u64({in0}.v0);
                   ret.v1 = nsimd_scalar_reinterpret_{typ}_u64({in0}.v1);
                   return ret;'''.format(**fmtspec)
-    elif simd_ext == 'vmx' and typ == 'u64':
-        return '''nsimd_{simd_ext}_vu64 ret;
+        elif typ == 'u64':
+            return '''nsimd_{simd_ext}_vu64 ret;
                   ret.v0 = {in0}.v0;
                   ret.v1 = {in0}.v1;
                   return ret;'''.format(**fmtspec)
@@ -1571,11 +1568,14 @@ def iota(simd_ext, typ):
                   ret.v0 = ({typ})0;
                   ret.v1 = ({typ})1;
                   return ret;'''.format(**fmtspec)
-    return 'nsimd_{simd_ext}_v{typ} ret;\n' \
-           'ret = vec_splats(({typ})0);\n'.format(**fmtspec) + \
-           '\n'.join('ret = vec_insert(({}){}, ret, {});'.format(typ, i, i) \
-                     for i in range(1, get_len(typ))) + \
-           '\nreturn ret;'
+    return (
+        'nsimd_{simd_ext}_v{typ} ret;\n'
+        'ret = vec_splats(({typ})0);\n'.format(**fmtspec)
+        + '\n'.join(
+            f'ret = vec_insert(({typ}){i}, ret, {i});'
+            for i in range(1, get_len(typ))
+        )
+    ) + '\nreturn ret;'
 
 # -----------------------------------------------------------------------------
 
@@ -1850,13 +1850,17 @@ def get_impl(opts, func, simd_ext, from_typ, to_typ):
         'in3': common.in3,
         'in4': common.in4,
         'in5': common.in5,
-        'zeros': 'vec_splats(({})0)'.format(from_typ),
-        'lzeros': '({})vec_splats((u{})0)'. \
-                  format(native_typel(from_typ), from_typ[1:]) \
-                  if not has_to_be_emulated(simd_ext, from_typ) else '',
-        'typnbits': from_typ[1:]
+        'zeros': f'vec_splats(({from_typ})0)',
+        'lzeros': f'({native_typel(from_typ)})vec_splats((u{from_typ[1:]})0)'
+        if not has_to_be_emulated(simd_ext, from_typ)
+        else '',
+        'typnbits': from_typ[1:],
     }
 
+    if simd_ext not in get_simd_exts():
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
+    if from_typ not in common.types:
+        raise ValueError(f'Unknown type "{from_typ}"')
     impls = {
         'loada': 'load1234(simd_ext, from_typ, 1, True)',
         'load2a': 'load1234(simd_ext, from_typ, 2, True)',
@@ -1956,11 +1960,4 @@ def get_impl(opts, func, simd_ext, from_typ, to_typ):
         'unziplo': 'unzip("unziplo", simd_ext, from_typ)',
         'unziphi': 'unzip("unziphi", simd_ext, from_typ)'
     }
-    if simd_ext not in get_simd_exts():
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
-    if not from_typ in common.types:
-        raise ValueError('Unknown type "{}"'.format(from_typ))
-    if not func in impls:
-        return common.NOT_IMPLEMENTED
-    else:
-        return eval(impls[func])
+    return common.NOT_IMPLEMENTED if func not in impls else eval(impls[func])

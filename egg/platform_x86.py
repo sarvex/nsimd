@@ -53,12 +53,12 @@ def get_prev_simd_ext(simd_ext):
         return 'avx'
     elif simd_ext in avx512:
         return 'avx2'
-    raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+    raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
 
 
 def emulate_fp16(simd_ext):
-    if not simd_ext in get_simd_exts():
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+    if simd_ext not in get_simd_exts():
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     return True
 
 
@@ -71,39 +71,37 @@ def get_native_typ(simd_ext, typ):
     elif simd_ext in avx512:
         bits = '512'
     else:
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     if typ == 'f32':
-        return '__m{}'.format(bits)
+        return f'__m{bits}'
     elif typ == 'f64':
-        return '__m{}d'.format(bits)
+        return f'__m{bits}d'
     elif typ in common.iutypes:
-        return '__m{}i'.format(bits)
+        return f'__m{bits}i'
 
 
 def get_type(opts, simd_ext, typ, nsimd_typ):
     if typ not in common.types:
-        raise ValueError('Unknown type "{}"'.format(typ))
+        raise ValueError(f'Unknown type "{typ}"')
     if typ == 'f16':
         return 'typedef struct {{{t} v0; {t} v1; }} {nsimd_typ};'. \
                format(t=get_native_typ(simd_ext, 'f32'), nsimd_typ=nsimd_typ)
     else:
-        return 'typedef {} {};'.format(get_native_typ(simd_ext, typ),
-                                       nsimd_typ)
+        return f'typedef {get_native_typ(simd_ext, typ)} {nsimd_typ};'
 
 
 def get_logical_type(opts, simd_ext, typ, nsimd_typ):
     if typ not in common.types:
-        raise ValueError('Unknown type "{}"'.format(typ))
+        raise ValueError(f'Unknown type "{typ}"')
     if simd_ext in sse + avx:
         return get_type(opts, simd_ext, typ, nsimd_typ)
     elif simd_ext in avx512:
         if typ == 'f16':
             return 'typedef struct {{ __mmask16 v0; __mmask16 v1; }} {};'. \
                    format(nsimd_typ)
-        return 'typedef __mmask{} {};'. \
-               format(512 // common.bitsize(typ), nsimd_typ)
+        return f'typedef __mmask{512 // common.bitsize(typ)} {nsimd_typ};'
     else:
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
 
 
 def get_nb_registers(simd_ext):
@@ -112,35 +110,32 @@ def get_nb_registers(simd_ext):
     elif simd_ext in avx512:
         return '32'
     else:
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
 
 
 def has_compatible_SoA_types(simd_ext):
     if simd_ext not in sse + avx + avx512:
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     else:
         return False
 
 
 def get_additional_include(func, platform, simd_ext):
     ret = ''
-    if simd_ext == 'sse2':
-        ret += '''#include <nsimd/cpu/cpu/{}.h>
-                  '''.format(func)
-    elif simd_ext == 'sse42':
-        ret += '''#include <nsimd/x86/sse2/{}.h>
-                  '''.format(func)
-    elif simd_ext == 'avx':
+    if simd_ext == 'avx':
         ret += '''#include <nsimd/x86/sse42/{}.h>
                   '''.format(func)
     elif simd_ext == 'avx2':
         ret += '''#include <nsimd/x86/avx/{}.h>
                   '''.format(func)
-    elif simd_ext == 'avx512_knl':
+    elif simd_ext in ['avx512_knl', 'avx512_skylake']:
         ret += '''#include <nsimd/x86/avx2/{}.h>
                   '''.format(func)
-    elif simd_ext == 'avx512_skylake':
-        ret += '''#include <nsimd/x86/avx2/{}.h>
+    elif simd_ext == 'sse2':
+        ret += '''#include <nsimd/cpu/cpu/{}.h>
+                  '''.format(func)
+    elif simd_ext == 'sse42':
+        ret += '''#include <nsimd/x86/sse2/{}.h>
                   '''.format(func)
     if func == 'shra':
         ret += '''#include <nsimd/x86/{simd_ext}/shr.h>
@@ -194,13 +189,13 @@ def get_additional_include(func, platform, simd_ext):
     if func == 'ziphi' and simd_ext in ['avx512_knl', 'avx512_skylake']:
         ret += '''#include <nsimd/x86/avx2/ziplo.h>
                   '''.format(simd_ext=simd_ext)
-    if func == 'zip':
-        ret += '''#include <nsimd/x86/{simd_ext}/ziplo.h>
-                  #include <nsimd/x86/{simd_ext}/ziphi.h>
-                  '''.format(simd_ext=simd_ext)
     if func == 'unzip':
         ret += '''#include <nsimd/x86/{simd_ext}/unziplo.h>
                   #include <nsimd/x86/{simd_ext}/unziphi.h>
+                  '''.format(simd_ext=simd_ext)
+    elif func == 'zip':
+        ret += '''#include <nsimd/x86/{simd_ext}/ziplo.h>
+                  #include <nsimd/x86/{simd_ext}/ziphi.h>
                   '''.format(simd_ext=simd_ext)
     if simd_ext in avx512 and func in ['loadlu', 'loadla']:
         ret += '''
@@ -234,8 +229,12 @@ def get_additional_include(func, platform, simd_ext):
     if func in ['store2u', 'store3u', 'store4u', 'store2a', 'store3a',
                 'store4a']:
         deg = func[5]
-        args = ','.join(['nsimd_{simd_ext}_vu16'.format(simd_ext=simd_ext)
-                         for i in range(1, int(deg) + 1)])
+        args = ','.join(
+            [
+                'nsimd_{simd_ext}_vu16'.format(simd_ext=simd_ext)
+                for _ in range(1, int(deg) + 1)
+            ]
+        )
         ret += '''
                   # include <nsimd/x86/{simd_ext}/loadu.h>
                   # include <nsimd/x86/{simd_ext}/storeu.h>
@@ -251,10 +250,6 @@ def get_additional_include(func, platform, simd_ext):
                   }} // extern "C"
                   # endif
                   '''.format(func=func, deg=deg, args=args, simd_ext=simd_ext)
-    if func == 'to_logical':
-        ret += '''#include <nsimd/x86/{simd_ext}/ne.h>
-                  #include <nsimd/x86/{simd_ext}/reinterpretl.h>
-                  '''.format(simd_ext=simd_ext)
     if func == 'adds':
         ret += '''#include <nsimd/x86/{simd_ext}/reinterpret.h>
                   #include <nsimd/x86/{simd_ext}/add.h>
@@ -274,7 +269,13 @@ def get_additional_include(func, platform, simd_ext):
         if simd_ext in avx512:
             ret += '''#include <nsimd/x86/{simd_ext}/to_logical.h>
                       '''.format(simd_ext=simd_ext)
-    if func == 'subs':
+    elif func == 'mask_for_loop_tail':
+        ret += '''#include <nsimd/x86/{simd_ext}/lt.h>
+                  #include <nsimd/x86/{simd_ext}/set1l.h>
+                  #include <nsimd/x86/{simd_ext}/iota.h>
+                  #include <nsimd/x86/{simd_ext}/set1.h>
+                  '''.format(simd_ext=simd_ext)
+    elif func == 'subs':
         ret += '''#include <nsimd/x86/{simd_ext}/adds.h>
                   #include <nsimd/x86/{simd_ext}/neg.h>
                   #include <nsimd/x86/{simd_ext}/sub.h>
@@ -282,11 +283,9 @@ def get_additional_include(func, platform, simd_ext):
                   #include <nsimd/x86/{simd_ext}/set1.h>
                   #include <nsimd/x86/{simd_ext}/if_else1.h>
                   '''.format(simd_ext=simd_ext)
-    if func == 'mask_for_loop_tail':
-        ret += '''#include <nsimd/x86/{simd_ext}/lt.h>
-                  #include <nsimd/x86/{simd_ext}/set1l.h>
-                  #include <nsimd/x86/{simd_ext}/iota.h>
-                  #include <nsimd/x86/{simd_ext}/set1.h>
+    elif func == 'to_logical':
+        ret += '''#include <nsimd/x86/{simd_ext}/ne.h>
+                  #include <nsimd/x86/{simd_ext}/reinterpretl.h>
                   '''.format(simd_ext=simd_ext)
     return ret
 
@@ -302,8 +301,8 @@ def pre(simd_ext):
     elif simd_ext in avx512:
         bits = '512'
     else:
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
-    return '_mm{}_'.format(bits)
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
+    return f'_mm{bits}_'
 
 def suf_ep(typ):
     if typ == 'f16':
@@ -313,9 +312,9 @@ def suf_ep(typ):
     elif typ == 'f64':
         return '_pd'
     elif typ in common.iutypes:
-        return '_epi{}'.format(typ[1:])
+        return f'_epi{typ[1:]}'
     else:
-        raise ValueError('Unknown type "{}"'.format(typ))
+        raise ValueError(f'Unknown type "{typ}"')
 
 def nbits(simd_ext):
     if simd_ext in sse:
@@ -333,9 +332,9 @@ def suf_si(simd_ext, typ):
     elif typ == 'f64':
         return '_pd'
     elif typ in common.iutypes:
-        return '_si{}'.format(nbits(simd_ext))
+        return f'_si{nbits(simd_ext)}'
     else:
-        raise ValueError('Unknown type "{}"'.format(typ))
+        raise ValueError(f'Unknown type "{typ}"')
 
 # -----------------------------------------------------------------------------
 # Other helper functions
@@ -346,47 +345,52 @@ LO = 0
 HI = 1
 
 def castsi(simd_ext, typ):
-    if typ in common.ftypes:
-        return ''
-    else:
-        return '(__m{}i *)'.format(nbits(simd_ext))
+    return '' if typ in common.ftypes else f'(__m{nbits(simd_ext)}i *)'
 
 def extract(simd_ext, typ, lohi, var):
     if simd_ext in avx:
         lohi_arg = '0' if lohi == LO else '1'
         if typ == 'f32':
-            if lohi == LO:
-                return '_mm256_castps256_ps128({})'.format(var)
-            else:
-                return '_mm256_extractf128_ps({}, 1)'.format(var)
+            return (
+                f'_mm256_castps256_ps128({var})'
+                if lohi == LO
+                else f'_mm256_extractf128_ps({var}, 1)'
+            )
         elif typ == 'f64':
-            if lohi == LO:
-                return '_mm256_castpd256_pd128({})'.format(var)
-            else:
-                return '_mm256_extractf128_pd({}, 1)'.format(var)
+            return (
+                f'_mm256_castpd256_pd128({var})'
+                if lohi == LO
+                else f'_mm256_extractf128_pd({var}, 1)'
+            )
         else:
-            if lohi == LO:
-                return '_mm256_castsi256_si128({})'.format(var)
-            else:
-                return '_mm256_extractf128_si256({}, 1)'.format(var)
+            return (
+                f'_mm256_castsi256_si128({var})'
+                if lohi == LO
+                else f'_mm256_extractf128_si256({var}, 1)'
+            )
     elif simd_ext in avx512:
         lohi_arg = '0' if lohi == LO else '1'
         if typ == 'f32':
-            if lohi == LO:
-                return '_mm512_castps512_ps256({})'.format(var)
-            else:
-                return '''_mm256_castsi256_ps(_mm512_extracti64x4_epi64(
-                              _mm512_castps_si512({}), 1))'''.format(var)
+            return (
+                f'_mm512_castps512_ps256({var})'
+                if lohi == LO
+                else '''_mm256_castsi256_ps(_mm512_extracti64x4_epi64(
+                              _mm512_castps_si512({}), 1))'''.format(
+                    var
+                )
+            )
         elif typ == 'f64':
-            if lohi == LO:
-                return '_mm512_castpd512_pd256({})'.format(var)
-            else:
-                return '_mm512_extractf64x4_pd({}, 1)'.format(var)
+            return (
+                f'_mm512_castpd512_pd256({var})'
+                if lohi == LO
+                else f'_mm512_extractf64x4_pd({var}, 1)'
+            )
         else:
-            if lohi == LO:
-                return '_mm512_castsi512_si256({})'.format(var)
-            else:
-                return '_mm512_extracti64x4_epi64({}, 1)'.format(var)
+            return (
+                f'_mm512_castsi512_si256({var})'
+                if lohi == LO
+                else f'_mm512_extracti64x4_epi64({var}, 1)'
+            )
 
 def setr(simd_ext, typ, var1, var2):
     if simd_ext in avx:
@@ -423,14 +427,10 @@ def set_lane(simd_ext, typ, var_name, scalar, i):
     #   All intrinscis manipulates only integers. So we use them.
     if typ in ['u8', 'u16']:
         vin0 = var_name
-        if simd_ext in sse:
-            vin1 = '(int)({})'.format(scalar)
-        else:
-            vin1 = scalar
+        vin1 = f'(int)({scalar})' if simd_ext in sse else scalar
     if typ in ['i8', 'i16']:
         vin0 = var_name
-        vin1 =  '(int)nsimd_scalar_reinterpret_{}_{}({})'. \
-               format('u' + typ[1:], typ, scalar)
+        vin1 = f'(int)nsimd_scalar_reinterpret_u{typ[1:]}_{typ}({scalar})'
     elif typ in ['i32', 'i64']:
         vin0 = var_name
         vin1 = scalar
@@ -441,8 +441,7 @@ def set_lane(simd_ext, typ, var_name, scalar, i):
             vin0 = '{pre}cast{pspd}_si{nbits}({var_name})'. \
                    format(pspd='ps' if typ == 'f32' else 'pd',
                           var_name=var_name, **fmtspec)
-        vin1 = 'nsimd_scalar_reinterpret_{}_{}({})'. \
-               format('i' + typ[1:], typ, scalar)
+        vin1 = f'nsimd_scalar_reinterpret_i{typ[1:]}_{typ}({scalar})'
 
     # Code for inserting bits
     if simd_ext == 'sse2':
@@ -457,7 +456,7 @@ def set_lane(simd_ext, typ, var_name, scalar, i):
                       '({vin1} << 8), {io2})'. \
                       format(vin0=vin0, vin1=vin1, io2=int(i // 2))
         if typ[1:] == '16':
-            tmp = '_mm_insert_epi16({}, {}, {})'.format(vin0, vin1, i)
+            tmp = f'_mm_insert_epi16({vin0}, {vin1}, {i})'
         if typ[1:] == '32':
             tmp = '_mm_insert_epi16(_mm_insert_epi16({vin0}, {vin1} & 65535,' \
                   ' {ix2}), (int)nsimd_scalar_reinterpret_u32_i32(' \
@@ -487,7 +486,7 @@ def set_lane(simd_ext, typ, var_name, scalar, i):
 
     # Then code for reinterpreting bits of output:
     if typ in common.iutypes:
-        return '{} = {};'.format(var_name, tmp)
+        return f'{var_name} = {tmp};'
     elif typ in ['f32', 'f64']:
         return '{var_name} = {pre}castsi{nbits}_{pdps}({tmp});'. \
                format(var_name=var_name, pdps='ps' if typ == 'f32' else 'pd',
@@ -513,10 +512,9 @@ def get_lane(simd_ext, typ, var_name, i):
             lane = '(_mm_cvtsi128_si32(_mm_srli_si128({vin}, {i})) & 255)'. \
                    format(vin=vin, i=i, **fmtspec)
         if typ[1:] == '16':
-            lane = '_mm_extract_epi16({}, {})'.format(vin, i)
+            lane = f'_mm_extract_epi16({vin}, {i})'
         if typ[1:] in ['32', '64']:
-            lane = '(_mm_cvtsi128_si{}(_mm_srli_si128({}, {})))'. \
-                   format(typ[1:], vin, i * int(typ[1:]) // 8)
+            lane = f'(_mm_cvtsi128_si{typ[1:]}(_mm_srli_si128({vin}, {i * int(typ[1:]) // 8})))'
     elif simd_ext in ['sse42', 'avx2']:
         lane = '{pre}extract_epi{typnbits}({vin}, {i})'. \
                format(vin=vin, i=i, **fmtspec)
@@ -527,29 +525,23 @@ def get_lane(simd_ext, typ, var_name, i):
         else:
             half = int(nbits(simd_ext)) // 2 // int(typ[1:])
             if i < half:
-                ext_half = extract(simd_ext, 'i' + typ[1:], LO, vin)
-                lane = '{}extract_epi{}({}, {})'.format(
-                           '_mm_' if simd_ext == 'avx' else '_mm256_',
-                           typ[1:], ext_half, i)
+                ext_half = extract(simd_ext, f'i{typ[1:]}', LO, vin)
+                lane = f"{'_mm_' if simd_ext == 'avx' else '_mm256_'}extract_epi{typ[1:]}({ext_half}, {i})"
             else:
-                ext_half = extract(simd_ext, 'i' + typ[1:], HI, vin)
-                lane = '{}extract_epi{}({}, {})'.format(
-                           '_mm_' if simd_ext == 'avx' else '_mm256_',
-                           typ[1:], ext_half, i - half)
+                ext_half = extract(simd_ext, f'i{typ[1:]}', HI, vin)
+                lane = f"{'_mm_' if simd_ext == 'avx' else '_mm256_'}extract_epi{typ[1:]}({ext_half}, {i - half})"
 
     # Then code for reinterpreting bits of output:
     #   - For 8 and 16-bits types intrinsics returns an 32-bits int
     #   - For 32 and 64-bits types intrinsics returns an int of that size
     if typ in ['u8', 'u16']:
-        return '({})({})'.format(typ, lane)
+        return f'({typ})({lane})'
     if typ in ['i8', 'i16']:
-        return 'nsimd_scalar_reinterpret_{}_{}(({})({}))'. \
-               format(typ, 'u' + typ[1:], 'u' + typ[1:], lane)
+        return f'nsimd_scalar_reinterpret_{typ}_u{typ[1:]}((u{typ[1:]})({lane}))'
     elif typ in ['i32', 'i64']:
         return lane
     elif typ in ['u32', 'f32', 'u64', 'f64']:
-        return 'nsimd_scalar_reinterpret_{}_{}({})'. \
-               format(typ, 'i' + typ[1:], lane)
+        return f'nsimd_scalar_reinterpret_{typ}_i{typ[1:]}({lane})'
 
 def get_undefined(simd_ext, typ):
     if typ in ['f32', 'f64']:
@@ -733,9 +725,11 @@ def cmp2_with_add(func, simd_ext, typ):
 def load(simd_ext, typ, aligned):
     align = '' if aligned else 'u'
     cast = castsi(simd_ext, typ)
-    if typ == 'f16':
-        if simd_ext in sse:
-            return \
+    if typ != 'f16':
+        return 'return {pre}load{align}{sufsi}({cast}{in0});'. \
+               format(align=align, cast=cast, **fmtspec)
+    if simd_ext in sse:
+        return \
             '''#ifdef NSIMD_FP16
                  nsimd_{simd_ext}_vf16 ret;
                  __m128i v = _mm_load{align}_si128((__m128i*){in0});
@@ -759,8 +753,8 @@ def load(simd_ext, typ, aligned):
                  ret.v1 = _mm_loadu_ps(buf);
                  return ret;
                #endif'''.format(align=align, **fmtspec)
-        elif simd_ext in avx:
-            return '''#ifdef NSIMD_FP16
+    elif simd_ext in avx:
+        return '''#ifdef NSIMD_FP16
                         nsimd_{simd_ext}_vf16 ret;
                         ret.v0 = _mm256_cvtph_ps(_mm_load{align}_si128(
                                    (__m128i*){in0}));
@@ -782,8 +776,8 @@ def load(simd_ext, typ, aligned):
                         ret.v1 = _mm256_loadu_ps(buf);
                         return ret;
                       #endif'''.format(align=align, **fmtspec)
-        elif simd_ext in avx512:
-            return '''nsimd_{simd_ext}_vf16 ret;
+    elif simd_ext in avx512:
+        return '''nsimd_{simd_ext}_vf16 ret;
                       ret.v0 = _mm512_cvtph_ps(
                                  _mm256_load{align}_si256((__m256i*){in0})
                                );
@@ -792,9 +786,6 @@ def load(simd_ext, typ, aligned):
                                );
                       return ret;
                       '''.format(align=align, **fmtspec)
-    else:
-        return 'return {pre}load{align}{sufsi}({cast}{in0});'. \
-               format(align=align, cast=cast, **fmtspec)
 
 # -----------------------------------------------------------------------------
 # masked loads
@@ -1302,11 +1293,10 @@ def addsub(func, simd_ext, typ):
     if typ in common.ftypes or simd_ext in sse or \
        (simd_ext in avx512 and typ in ['u32', 'i32', 'u64', 'i64']):
         return how_it_should_be_op2(func, simd_ext, typ)
+    if simd_ext in ['avx2', 'avx512_skylake']:
+        return how_it_should_be_op2(func, simd_ext, typ)
     else:
-        if simd_ext in ['avx2', 'avx512_skylake']:
-            return how_it_should_be_op2(func, simd_ext, typ)
-        else:
-            return split_op2(func, simd_ext, typ)
+        return split_op2(func, simd_ext, typ)
 
 # -----------------------------------------------------------------------------
 # Len
@@ -1538,25 +1528,25 @@ def set1l(simd_ext, typ):
                   ret.v0 = nsimd_set1l_{simd_ext}_f32({in0});
                   ret.v1 = ret.v0;
                   return ret;'''.format(**fmtspec)
-    if simd_ext in sse + avx:
-        if simd_ext in sse:
-            ones = '_mm_cmpeq_pd(_mm_setzero_pd(), _mm_setzero_pd())'
-        else:
-            ones = '_mm256_cmp_pd(_mm256_setzero_pd(), _mm256_setzero_pd(), ' \
-                   '_CMP_EQ_OQ)'
-        if typ != 'f64':
-            ones = '{pre}castpd{sufsi}({ones})'.format(ones=ones, **fmtspec)
-        return '''if ({in0}) {{
-                    return {ones};
-                  }} else {{
-                    return {pre}setzero{sufsi}();
-                  }}'''.format(ones=ones, **fmtspec)
-    else:
+    if simd_ext not in sse + avx:
         return '''if ({in0}) {{
                     return (__mmask{le})(~(__mmask{le})(0));
                   }} else {{
                     return (__mmask{le})(0);
                   }}'''.format(**fmtspec)
+    ones = (
+        '_mm_cmpeq_pd(_mm_setzero_pd(), _mm_setzero_pd())'
+        if simd_ext in sse
+        else '_mm256_cmp_pd(_mm256_setzero_pd(), _mm256_setzero_pd(), '
+        '_CMP_EQ_OQ)'
+    )
+    if typ != 'f64':
+        ones = '{pre}castpd{sufsi}({ones})'.format(ones=ones, **fmtspec)
+    return '''if ({in0}) {{
+                    return {ones};
+                  }} else {{
+                    return {pre}setzero{sufsi}();
+                  }}'''.format(ones=ones, **fmtspec)
 
 # -----------------------------------------------------------------------------
 # Equality
@@ -2005,7 +1995,7 @@ def fma_fms(func, simd_ext, typ):
            ret.v0 = nsimd_{func}_{simd_ext}_f32({in0}.v0, {in1}.v0, {in2}.v0);
            ret.v1 = nsimd_{func}_{simd_ext}_f32({in0}.v1, {in1}.v1, {in2}.v1);
            return ret;'''.format(neg=neg, func=func, **fmtspec)
-    if neg == '':
+    if not neg:
         emulate = '''return nsimd_{op}_{simd_ext}_{typ}(
                               nsimd_mul_{simd_ext}_{typ}({in0}, {in1}),
                                 {in2});'''.format(op=op, **fmtspec)
@@ -4101,10 +4091,7 @@ def get_impl(opts, func, simd_ext, from_typ, to_typ):
         'iota': lambda : iota(simd_ext, from_typ)
     }
     if simd_ext not in get_simd_exts():
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
-    if not from_typ in common.types:
-        raise ValueError('Unknown type "{}"'.format(from_typ))
-    if not func in impls:
-        return common.NOT_IMPLEMENTED
-    else:
-        return impls[func]()
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
+    if from_typ not in common.types:
+        raise ValueError(f'Unknown type "{from_typ}"')
+    return common.NOT_IMPLEMENTED if func not in impls else impls[func]()

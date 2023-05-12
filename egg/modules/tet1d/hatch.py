@@ -28,7 +28,7 @@ import gen_tests as nsimd_tests
 # CUDA: default number of threads per block
 
 tpb = 128
-gpu_params = '(n + {}) / {}, {}'.format(tpb, tpb - 1, tpb)
+gpu_params = f'(n + {tpb}) / {tpb - 1}, {tpb}'
 
 def is_not_closed(operator):
     return (operator.output_to == common.OUTPUT_TO_SAME_SIZE_TYPES \
@@ -214,7 +214,7 @@ def gen_doc_api(opts):
         return
 
     # Build tree for api.md
-    api = dict()
+    api = {}
     for _, operator in operators.operators.items():
         if not operator.has_scalar_impl:
             continue
@@ -232,7 +232,8 @@ def gen_doc_api(opts):
                 return 'ExprNumber'
             elif typ == 'l':
                 return 'ExprBool'
-        ret = get_type(op.params[0]) + ' ' + op.name + '('
+
+        ret = f'{get_type(op.params[0])} {op.name}('
         if is_not_closed(op):
             ret += 'ToType' + (', ' if len(op.params[1:]) > 0 else '')
         ret += ', '.join(['{{t}} {{in{i}}}'.format(i=i). \
@@ -242,9 +243,9 @@ def gen_doc_api(opts):
         ret += ');'
         return ret
 
-    with common.open_utf8(opts, filename) as fout:
-        fout.write(
-'''# NSIMD TET1D API reference
+        with common.open_utf8(opts, filename) as fout:
+            fout.write(
+    '''# NSIMD TET1D API reference
 
 This page contains the exhaustive API of the TET1D module. Note that most
 operators names follow their NSIMD counterparts and have the same
@@ -268,16 +269,16 @@ In all signature below the following pseudo types are used for simplification:
 
 ''')
 
-        for c, ops in api.items():
-            if len(ops) == 0:
-                continue
-            fout.write('\n## {}\n\n'.format(c.title))
-            for op in ops:
-                fout.write('- `{}`  \n'.format(get_signature(op)))
-                if op.cxx_operator != None:
-                    fout.write('  Infix operator: `{}`  \n'. \
-                               format(op.cxx_operator[8:]))
-                fout.write('  {}\n\n'.format(op.desc))
+            for c, ops in api.items():
+                if len(ops) == 0:
+                    continue
+                fout.write('\n## {}\n\n'.format(c.title))
+                for op in ops:
+                    fout.write('- `{}`  \n'.format(get_signature(op)))
+                    if op.cxx_operator != None:
+                        fout.write('  Infix operator: `{}`  \n'. \
+                                   format(op.cxx_operator[8:]))
+                    fout.write('  {}\n\n'.format(op.desc))
 
 # -----------------------------------------------------------------------------
 
@@ -285,7 +286,7 @@ def gen_tests_for_shifts(opts, t, operator):
     op_name = operator.name
     dirname = os.path.join(opts.tests_dir, 'modules', 'tet1d')
     common.mkdir_p(dirname)
-    filename = os.path.join(dirname, '{}.{}.cpp'.format(op_name, t))
+    filename = os.path.join(dirname, f'{op_name}.{t}.cpp')
     if not common.can_create_filename(opts, filename):
         return
     with common.open_utf8(opts, filename) as out:

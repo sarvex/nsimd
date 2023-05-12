@@ -40,8 +40,8 @@ operators = operators.operators
 
 def get_command_output(args):
     p = subprocess.Popen(args, stdout=subprocess.PIPE)
-    lines = p.communicate()[0].split('\n')[0:-1]
-    return '\n'.join(['    {}'.format(l) for l in lines])
+    lines = p.communicate()[0].split('\n')[:-1]
+    return '\n'.join([f'    {l}' for l in lines])
 
 # -----------------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ Full list of scalar types:
 
 ''')
         for t in common.types:
-            fout.write('- `{}`\n'.format(t))
+            fout.write(f'- `{t}`\n')
         fout.write('''
 ## NSIMD generic SIMD vector types
 
@@ -104,9 +104,9 @@ platforms and their corresponding SIMD extensions.
 ''')
         platforms = common.get_platforms(opts)
         for p in platforms:
-            fout.write('- Platform `{}`\n'.format(p))
+            fout.write(f'- Platform `{p}`\n')
             for s in platforms[p].get_simd_exts():
-                fout.write('  - `{}`\n'.format(s))
+                fout.write(f'  - `{s}`\n')
         fout.write('''
 Each simd extension has its own set of SIMD types and functions. Types follow
 the pattern: `nsimd_SIMDEXT_vSCALAR` where
@@ -213,10 +213,10 @@ Here is a list of available FUNCNAME.
             args = ', '.join([common.get_one_type_generic(p, 'SCALAR') + \
                               ' a' + str(count) for count, p in \
                               enumerate(operator.params[1:])])
-            fout.write('- `{} {}({});`  \n'.format(return_typ, func, args))
+            fout.write(f'- `{return_typ} {func}({args});`  \n')
             if len(operator.types) < len(common.types):
-                typs = ', '.join(['{}'.format(t) for t in operator.types])
-                fout.write('  Only available for {}\n'.format(typs))
+                typs = ', '.join([f'{t}' for t in operator.types])
+                fout.write(f'  Only available for {typs}\n')
 
         fout.write('''
 
@@ -291,7 +291,7 @@ def gen_doc(opts):
     common.myprint(opts, 'Generating doc for each function')
 
     # Build tree for api.md
-    api = dict()
+    api = {}
     for _, operator in operators.items():
         for c in operator.categories:
             if c not in api:
@@ -388,8 +388,8 @@ def gen_modules_md(opts):
     mods = common.get_modules(opts)
     ndms = []
     for mod in mods:
-        name = eval('mods[mod].{}.hatch.name()'.format(mod))
-        desc = eval('mods[mod].{}.hatch.desc()'.format(mod))
+        name = eval(f'mods[mod].{mod}.hatch.name()')
+        desc = eval(f'mods[mod].{mod}.hatch.desc()')
         ndms.append([name, desc, mod])
     filename = common.get_markdown_file(opts, 'modules')
     if not common.can_create_filename(opts, filename):
@@ -405,10 +405,8 @@ abstract SIMD intrinsics. Below is the exhaustive list of modules.
 
 ''')
         for ndm in ndms:
-            fout.write('- [{}](module_{}_overview.md)  \n'.format(ndm[0],
-                                                                  ndm[2]))
-            fout.write('\n'.join(['  {}'.format(line.strip()) \
-                                  for line in ndm[1].split('\n')]))
+            fout.write(f'- [{ndm[0]}](module_{ndm[2]}_overview.md)  \n')
+            fout.write('\n'.join([f'  {line.strip()}' for line in ndm[1].split('\n')]))
             fout.write('\n\n')
 
 # -----------------------------------------------------------------------------
@@ -417,11 +415,9 @@ def build_exe_for_doc(opts):
     if not opts.list_files:
         doc_dir = os.path.join(opts.script_dir, '..', 'doc')
         if platform.system() == 'Windows':
-            code = os.system('cd {} && nmake /F Makefile.win'. \
-                             format(os.path.normpath(doc_dir)))
+            code = os.system(f'cd {os.path.normpath(doc_dir)} && nmake /F Makefile.win')
         else:
-            code = os.system('cd {} && make -f Makefile.nix'. \
-                             format(os.path.normpath(doc_dir)))
+            code = os.system(f'cd {os.path.normpath(doc_dir)} && make -f Makefile.nix')
         if code == 0:
             common.myprint(opts, 'Build successful')
         else:
@@ -437,16 +433,14 @@ def gen_what_is_wrapped(opts):
     doc_dir = os.path.join(opts.script_dir, '..', 'doc')
     full_path_wrapped = os.path.join(doc_dir, wrapped)
     if not os.path.isfile(full_path_wrapped):
-        common.myprint(opts, '{} not found'.format(wrapped))
+        common.myprint(opts, f'{wrapped} not found')
         return
 
     # Content for indexing files created in this function
     index = '# Intrinsics that are wrapped\n'
 
     # Build command line
-    cmd0 = '{} {},{},{},{},{},{}'.format(full_path_wrapped, common.in0,
-                                         common.in1, common.in2, common.in3,
-                                         common.in4, common.in5)
+    cmd0 = f'{full_path_wrapped} {common.in0},{common.in1},{common.in2},{common.in3},{common.in4},{common.in5}'
 
     # For now we only list Intel, Arm and POWERPC intrinsics
     simd_exts = common.x86_simds + common.arm_simds + common.ppc_simds
@@ -455,23 +449,21 @@ def gen_what_is_wrapped(opts):
         for simd_ext in opts.platforms_list[p].get_simd_exts():
             if simd_ext not in simd_exts:
                 continue
-            md = os.path.join(common.get_markdown_dir(opts),
-                              'wrapped_intrinsics_for_{}.md'.format(simd_ext))
-            index_simds += '- [{}](wrapped_intrinsics_for_{}.md)\n'. \
-                           format(simd_ext.upper(), simd_ext)
+            md = os.path.join(
+                common.get_markdown_dir(opts),
+                f'wrapped_intrinsics_for_{simd_ext}.md',
+            )
+            index_simds += f'- [{simd_ext.upper()}](wrapped_intrinsics_for_{simd_ext}.md)\n'
             ops = [[], [], [], []]
             for op_name, operator in operators.items():
                 if operator.src:
                     continue
-                c_src = os.path.join(opts.include_dir, p, simd_ext,
-                                     '{}.h'.format(op_name))
-                ops[operator.output_to].append('{} "{}"'. \
-                                               format(op_name, c_src))
+                c_src = os.path.join(opts.include_dir, p, simd_ext, f'{op_name}.h')
+                ops[operator.output_to].append(f'{op_name} "{c_src}"')
             if not common.can_create_filename(opts, md):
                 continue
             with common.open_utf8(opts, md) as fout:
-                fout.write('# Intrinsics wrapped for {}\n\n'. \
-                           format(simd_ext.upper()))
+                fout.write(f'# Intrinsics wrapped for {simd_ext.upper()}\n\n')
                 fout.write('Notations are as follows:\n'
                            '- `T` for trick usually using other intrinsics\n'
                            '- `E` for scalar emulation\n'
@@ -480,35 +472,31 @@ def gen_what_is_wrapped(opts):
                               'the given type\n'
                            '- `intrinsic` for the actual wrapped intrinsic\n'
                            '\n')
-            cmd = '{} {} same {} >> "{}"'.format(cmd0, simd_ext,
-                    ' '.join(ops[common.OUTPUT_TO_SAME_TYPE]), md)
+            cmd = f"""{cmd0} {simd_ext} same {' '.join(ops[common.OUTPUT_TO_SAME_TYPE])} >> "{md}\""""
             if os.system(cmd) != 0:
                 common.myprint(opts, 'Unable to generate markdown for '
                                      '"same"')
                 continue
 
-            cmd = '{} {} same_size {} >> "{}"'.format(cmd0, simd_ext,
-                    ' '.join(ops[common.OUTPUT_TO_SAME_SIZE_TYPES]), md)
+            cmd = f"""{cmd0} {simd_ext} same_size {' '.join(ops[common.OUTPUT_TO_SAME_SIZE_TYPES])} >> "{md}\""""
             if os.system(cmd) != 0:
                 common.myprint(opts, 'Unable to generate markdown for '
                                      '"same_size"')
                 continue
 
-            cmd = '{} {} bigger_size {} >> "{}"'.format(cmd0, simd_ext,
-                    ' '.join(ops[common.OUTPUT_TO_UP_TYPES]), md)
+            cmd = f"""{cmd0} {simd_ext} bigger_size {' '.join(ops[common.OUTPUT_TO_UP_TYPES])} >> "{md}\""""
             if os.system(cmd) != 0:
                 common.myprint(opts, 'Unable to generate markdown for '
                                      '"bigger_size"')
                 continue
 
-            cmd = '{} {} lesser_size {} >> "{}"'.format(cmd0, simd_ext,
-                    ' '.join(ops[common.OUTPUT_TO_DOWN_TYPES]), md)
+            cmd = f"""{cmd0} {simd_ext} lesser_size {' '.join(ops[common.OUTPUT_TO_DOWN_TYPES])} >> "{md}\""""
             if os.system(cmd) != 0:
                 common.myprint(opts, 'Unable to generate markdown for '
                                      '"lesser_size"')
                 continue
         if index_simds != '':
-            index += '\n## Platform {}\n\n'.format(p)
+            index += f'\n## Platform {p}\n\n'
             index += index_simds
 
     md = os.path.join(common.get_markdown_dir(opts), 'wrapped_intrinsics.md')
@@ -525,18 +513,17 @@ def get_html_api_file(opts, name, module=''):
     root = get_html_dir(opts)
     op_name = to_filename(name)
     if module == '':
-        return os.path.join(root, 'api_{}.html'.format(op_name))
+        return os.path.join(root, f'api_{op_name}.html')
     else:
-        return os.path.join(root, 'module_{}_api_{}.html'. \
-                                  format(module, op_name))
+        return os.path.join(root, f'module_{module}_api_{op_name}.html')
 
 def get_html_file(opts, name, module=''):
     root = get_html_dir(opts)
     op_name = to_filename(name)
     if module == '':
-        return os.path.join(root, '{}.html'.format(op_name))
+        return os.path.join(root, f'{op_name}.html')
     else:
-        return os.path.join(root, 'module_{}_{}.html'.format(module, op_name))
+        return os.path.join(root, f'module_{module}_{op_name}.html')
 
 doc_header = '''\
 <!DOCTYPE html>
@@ -611,19 +598,23 @@ doc_footer = '''\
 def get_html_header(opts, title, filename):
     # check if filename is part of a module doc
     for mod in opts.modules_list:
-        if filename.startswith('module_{}_'.format(mod)):
-            links = eval('opts.modules_list[mod].{}.hatch.doc_menu()'. \
-                         format(mod))
-            name = eval('opts.modules_list[mod].{}.hatch.name()'.format(mod))
-            html = '<div style="text-align: center; margin-bottom: 1em;">\n'
-            html += '<b>{} module documentation</b>\n'.format(name)
+        if filename.startswith(f'module_{mod}_'):
+            links = eval(f'opts.modules_list[mod].{mod}.hatch.doc_menu()')
+            name = eval(f'opts.modules_list[mod].{mod}.hatch.name()')
+            html = (
+                '<div style="text-align: center; margin-bottom: 1em;">\n'
+                + f'<b>{name} module documentation</b>\n'
+            )
             if len(links) > 0:
                 html += '</div>\n'
                 html += \
                 '<div style="text-align: center; margin-bottom: 1em;">\n'
-                html += ' | '.join(['<a href=\"module_{}_{}.html\">{}</a>'. \
-                                    format(mod, href, label) \
-                                    for label, href in links.items()])
+                html += ' | '.join(
+                    [
+                        f'<a href=\"module_{mod}_{href}.html\">{label}</a>'
+                        for label, href in links.items()
+                    ]
+                )
             html += '\n<hr>\n</div>\n'
             return doc_header.format(title, html)
     return doc_header.format(title, '')
@@ -641,7 +632,7 @@ def gen_doc_html(opts, title):
         doc_dir = os.path.join(opts.script_dir, '..', 'doc')
         full_path_md2html = os.path.join(doc_dir, md2html)
         if not os.path.isfile(full_path_md2html):
-            common.myprint(opts, '{} not found'.format(md2html))
+            common.myprint(opts, f'{md2html} not found')
             return
 
     # get all markdown files
@@ -660,8 +651,8 @@ def gen_doc_html(opts, title):
     if opts.list_files:
         ## list gen files
         for filename in doc_files:
-            input_name = os.path.join(md_dir, filename + '.md')
-            output_name = os.path.join(html_dir, filename + '.html')
+            input_name = os.path.join(md_dir, f'{filename}.md')
+            output_name = os.path.join(html_dir, f'{filename}.html')
             print(output_name)
     else:
         ## gen html files
@@ -669,10 +660,9 @@ def gen_doc_html(opts, title):
         tmp_file = os.path.join(doc_dir, 'tmp.html')
         for filename in doc_files:
             header = get_html_header(opts, title, filename)
-            input_name = os.path.join(md_dir, filename + '.md')
-            output_name = os.path.join(html_dir, filename + '.html')
-            os.system('{} "{}" "{}"'.format(full_path_md2html, input_name,
-                                            tmp_file))
+            input_name = os.path.join(md_dir, f'{filename}.md')
+            output_name = os.path.join(html_dir, f'{filename}.html')
+            os.system(f'{full_path_md2html} "{input_name}" "{tmp_file}"')
             with common.open_utf8(opts, output_name) as fout:
                 fout.write(header)
                 with io.open(tmp_file, mode='r', encoding='utf-8') as fin:
@@ -686,8 +676,7 @@ def gen_html(opts):
 # -----------------------------------------------------------------------------
 
 def copy_github_file_to_doc(opts, github_filename, doc_filename):
-    common.myprint(opts, 'Copying {} ---> {}'. \
-                   format(github_filename, doc_filename))
+    common.myprint(opts, f'Copying {github_filename} ---> {doc_filename}')
     if not common.can_create_filename(opts, doc_filename):
         return
     with io.open(github_filename, mode='r', encoding='utf-8') as fin:

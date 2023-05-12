@@ -24,4 +24,4 @@ import common
 def doit(opts):
     mods = common.get_modules(opts)
     for mod in mods:
-        exec('mods[mod].{}.hatch.doit(opts)'.format(mod))
+        exec(f'mods[mod].{mod}.hatch.doit(opts)')

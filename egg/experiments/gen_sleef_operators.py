@@ -24,8 +24,9 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 sleef_dir = os.path.join(script_dir, '..', '..', '_deps-sleef')
 sleef_version = '3.5.1'
 
-funcproto = os.path.join(sleef_dir, 'sleef-{}'.format(sleef_version),
-                         'src', 'libm', 'funcproto.h')
+funcproto = os.path.join(
+    sleef_dir, f'sleef-{sleef_version}', 'src', 'libm', 'funcproto.h'
+)
 
 ulp_suffix = {
     '0' : '',
@@ -90,7 +91,7 @@ props = {
 
 with open(funcproto, 'r') as fin:
     for line in fin:
-        if not (line.find('{') != -1 and line.find('}') != -1):
+        if line.find('{') == -1 or line.find('}') == -1:
             continue
         items = [item.strip() for item in line.strip(' \n\r{},').split(',')]
         items[0] = items[0].strip('"')
@@ -98,20 +99,16 @@ with open(funcproto, 'r') as fin:
             break
         if items[0] not in props:
             continue
-        name = items[0] + '_u' + items[1]
-        symbol = 'nsimd_sleef_{}'.format(name)
+        name = f'{items[0]}_u{items[1]}'
+        symbol = f'nsimd_sleef_{name}'
         prop = props[items[0]]
-        print('Class {}{}(SrcOperator):'. \
-              format(name[0].upper(), name[1:]))
-        print('  full_name = \'{}\''.format(prop[0]))
-        print('  signature = \'{}\''.format(func_type[items[3]]) \
-                                    .format(name))
-        print('  sleef_symbol_prefix = \'{}\''.format(symbol))
-        print('  domain = Domain(\'{}\')'.format(prop[2]))
-        print('  categories = [{}]'.format(prop[1]))
-        print('  desc = \'Compute the {} of its argument{} with ' \
-                 'a precision of {} ulps. For more informations visit ' \
-                 '<https://sleef.org/purec.xhtml>.\''.format(prop[0],
-                 's' if items[3] in ['1', '3', '5'] else '',
-                 float(items[1]) / 10.0))
+        print(f'Class {name[0].upper()}{name[1:]}(SrcOperator):')
+        print(f"  full_name = \'{prop[0]}\'")
+        print(f"  signature = \'{func_type[items[3]]}\'".format(name))
+        print(f"  sleef_symbol_prefix = \'{symbol}\'")
+        print(f"  domain = Domain(\'{prop[2]}\')")
+        print(f'  categories = [{prop[1]}]')
+        print(
+            f"  desc = \'Compute the {prop[0]} of its argument{'s' if items[3] in ['1', '3', '5'] else ''} with a precision of {float(items[1]) / 10.0} ulps. For more informations visit <https://sleef.org/purec.xhtml>.\'"
+        )
         print('')

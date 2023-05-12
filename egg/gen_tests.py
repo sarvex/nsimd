@@ -57,14 +57,18 @@ def should_i_do_the_test(operator, tt='', t=''):
         # These functions are used in almost every tests so we consider
         # that they are extensively tested.
         return False
-    if operator.name in ['store2a', 'store2u', 'store3a', 'store3u',
-                         'store4a', 'store4u', 'scatter', 'scatter_linear',
-                         'downcvt', 'to_logical']:
-        # These functions are tested along with their load counterparts.
-        # downcvt is tested along with upcvt and to_logical is tested with
-        # to_mask
-        return False
-    return True
+    return operator.name not in [
+        'store2a',
+        'store2u',
+        'store3a',
+        'store3u',
+        'store4a',
+        'store4u',
+        'scatter',
+        'scatter_linear',
+        'downcvt',
+        'to_logical',
+    ]
 
 # -----------------------------------------------------------------------------
 # CBPRNG
@@ -96,10 +100,16 @@ def cbprng_impl(typ, domain_, for_cpu, only_int = False):
             format('(f16)' if not for_cpu else 'nsimd_f32_to_f16',
                    '(f32)(i32)' if only_int else '', a0, a1 - a0, code)
         elif typ in ['f32', 'f64']:
-            return \
-            'return {}(({}){} + ({}){} * ({}){} / ({})1000000);'. \
-            format('({})({})'.format(typ, 'i' + typ[1:]) if only_int else '',
-                   typ, a0, typ, a1 - a0, typ, code, typ)
+            return 'return {}(({}){} + ({}){} * ({}){} / ({})1000000);'.format(
+                '({})({})'.format(typ, f'i{typ[1:]}') if only_int else '',
+                typ,
+                a0,
+                typ,
+                a1 - a0,
+                typ,
+                code,
+                typ,
+            )
 
     if typ not in common.utypes:
         domain = domain_
@@ -108,7 +118,7 @@ def cbprng_impl(typ, domain_, for_cpu, only_int = False):
         if domain_[2 * i + 1] > 0:
             domain.append(domain_[2 * i])
             domain.append(domain_[2 * i + 1])
-    if len(domain) == 0:
+    if not domain:
         raise ValueError('domain {} is empty after filtering'.format(domain_))
 
     nb_intervals = len(domain) // 2
@@ -130,8 +140,7 @@ def cbprng(typ, operator, target, gpu_params = None):
                          'oneapi')
 
     arity = len(operator.params[1:])
-    ret = '{}{} random_impl(int i, int j) {{\n'. \
-          format('' if target in ['cpu', 'oneapi'] else '__device__ ', typ)
+    ret = f"{'' if target in ['cpu', 'oneapi'] else '__device__ '}{typ} random_impl(int i, int j) {{\n"
     for_cpu = (target == 'cpu')
 
     if arity == 1:
@@ -223,26 +232,26 @@ def get_filename(opts, op, typ, lang, custom_name=''):
     common.mkdir_p(tests_dir)
     ext = { 'c_base': 'prec11.c', 'c_adv': 'c' }
     if not custom_name:
-        filename = os.path.join(tests_dir, '{}.{}.{}'.format(op.name, typ,
-                     ext[lang] if lang in ['c_base', 'c_adv'] else 'cpp'))
+        filename = os.path.join(
+            tests_dir,
+            f"{op.name}.{typ}.{ext[lang] if lang in ['c_base', 'c_adv'] else 'cpp'}",
+        )
     else:
-        filename = os.path.join(tests_dir, '{}_{}.{}.{}'.format(op.name,
-                     custom_name, typ,
-                     ext[lang] if lang in ['c_base', 'c_adv'] else 'cpp'))
-    if common.can_create_filename(opts, filename):
-        return filename
-    else:
-        return None
+        filename = os.path.join(
+            tests_dir,
+            f"{op.name}_{custom_name}.{typ}.{ext[lang] if lang in ['c_base', 'c_adv'] else 'cpp'}",
+        )
+    return filename if common.can_create_filename(opts, filename) else None
 
 # -----------------------------------------------------------------------------
 # Get standard includes
 
 def get_includes(lang):
     ret = '#include <nsimd/nsimd.h>\n'
-    if lang == 'cxx_adv':
-        ret += '#include <nsimd/cxx_adv_api.hpp>\n'
     if lang == 'c_adv':
         ret += '#include <nsimd/c_adv_api.h>\n'
+    elif lang == 'cxx_adv':
+        ret += '#include <nsimd/cxx_adv_api.hpp>\n'
     if lang in ['c_base', 'c_adv']:
         ret += '''#include <stdlib.h>
                   #include <stdio.h>
@@ -650,7 +659,7 @@ def gen_test(opts, op, typ, lang):
 
 def gen_addv(opts, op, typ, lang):
     filename = get_filename(opts, op, typ, lang)
-    if filename == None:
+    if filename is None:
         return
 
     if typ == 'f16':
@@ -658,23 +667,20 @@ def gen_addv(opts, op, typ, lang):
         zero = 'nsimd_f32_to_f16(0.0f)'
         comp = 'nsimd_f16_to_f32(vout[i]) != nsimd_f16_to_f32(vref[i])'
     else:
-        rand = '({})((int)(rand() % 3) - 1)'.format(typ)
-        zero = '({})0'.format(typ)
+        rand = f'({typ})((int)(rand() % 3) - 1)'
+        zero = f'({typ})0'
         comp = 'vout[i] != vref[i]'
 
-    if lang == 'c_base':
+    if lang == 'c_adv':
+        nsimd = f'nsimd_addv(nsimd_loada(nsimd_pack_{typ}, vin + (i * step)))'
+    elif lang == 'c_base':
         nsimd = 'vaddv(vloada(vin + (i * step), {typ}), {typ})'. \
                 format(typ=typ)
-    elif lang == 'c_adv':
-        nsimd = 'nsimd_addv(nsimd_loada(nsimd_pack_{}, vin + (i * step)))'. \
-                format(typ)
-    elif lang == 'cxx_base':
-        nsimd = 'nsimd::addv(nsimd::loada(vin + (i * step), {}()), {}())'. \
-                format(typ, typ)
     elif lang == 'cxx_adv':
-        nsimd = 'nsimd::addv(nsimd::loada<nsimd::pack<{}> >' \
-                             '(vin + (i * step)))'.format(typ)
+        nsimd = f'nsimd::addv(nsimd::loada<nsimd::pack<{typ}> >(vin + (i * step)))'
 
+    elif lang == 'cxx_base':
+        nsimd = f'nsimd::addv(nsimd::loada(vin + (i * step), {typ}()), {typ}())'
     with common.open_utf8(opts, filename) as out:
         out.write(
         '''{posix_c_source}
@@ -1223,7 +1229,7 @@ def gen_adds(opts, op, typ, lang):
 
     filename = get_filename(opts, op, typ, lang)
 
-    if filename == None:
+    if filename is None:
         return
 
     sizeof = common.sizeof(typ)
@@ -1745,25 +1751,22 @@ def gen_subs(opts, op, typ, lang):
 
 def gen_all_any(opts, op, typ, lang):
     filename = get_filename(opts, op, typ, lang)
-    if filename == None:
+    if filename is None:
         return
-    if lang == 'c_base':
-        op_test = 'v{}(vloadla(buf, {}), {})'.format(op.name, typ, typ)
-    elif lang == 'c_adv':
-        op_test = 'nsimd_{}(nsimd_loadla(nsimd_packl_{}, buf))'. \
-                  format(op.name, typ)
+    if lang == 'c_adv':
+        op_test = f'nsimd_{op.name}(nsimd_loadla(nsimd_packl_{typ}, buf))'
+    elif lang == 'c_base':
+        op_test = f'v{op.name}(vloadla(buf, {typ}), {typ})'
     elif lang == 'cxx_base':
-        op_test = 'nsimd::{}(nsimd::loadla(buf, {}()), {}())'. \
-                  format(op.name, typ, typ)
+        op_test = f'nsimd::{op.name}(nsimd::loadla(buf, {typ}()), {typ}())'
     else:
-        op_test = 'nsimd::{}(nsimd::loadla<nsimd::packl<{}> >(buf))'. \
-                  format(op.name, typ)
+        op_test = f'nsimd::{op.name}(nsimd::loadla<nsimd::packl<{typ}> >(buf))'
     if typ == 'f16':
         scalar0 = 'nsimd_f32_to_f16(0)'
         scalar1 = 'nsimd_f32_to_f16(1)'
     else:
-        scalar0 = '({})0'.format(typ)
-        scalar1 = '({})1'.format(typ)
+        scalar0 = f'({typ})0'
+        scalar1 = f'({typ})1'
     with common.open_utf8(opts, filename) as out:
         out.write(
             '''{includes}
@@ -2639,13 +2642,13 @@ def gen_load_store_ravel(opts, op, typ, lang):
 
 def gen_iota(opts, op, typ, lang):
     filename = get_filename(opts, op, typ, lang)
-    if filename == None:
+    if filename is None:
         return
-    if lang == 'c_base':
-        do_iota = 'vstoreu(buf, viota({typ}), {typ});'.format(typ=typ)
-    elif lang == 'c_adv':
+    if lang == 'c_adv':
         do_iota = 'nsimd_storeu(buf, nsimd_iota(nsimd_pack_{typ}));'. \
                   format(typ=typ)
+    elif lang == 'c_base':
+        do_iota = 'vstoreu(buf, viota({typ}), {typ});'.format(typ=typ)
     elif lang == 'cxx_base':
         do_iota = 'nsimd::storeu(buf, nsimd::iota({typ}()), {typ}());'. \
                   format(typ=typ)
@@ -2689,24 +2692,22 @@ def gen_iota(opts, op, typ, lang):
 
 def gen_nbtrue(opts, op, typ, lang):
     filename = get_filename(opts, op, typ, lang)
-    if filename == None:
+    if filename is None:
         return
-    if lang == 'c_base':
-        nbtrue = 'vnbtrue(vloadla(buf, {}), {})'.format(typ, typ)
-    elif lang == 'c_adv':
-        nbtrue = 'nsimd_nbtrue(nsimd_loadla(nsimd_packl_{}, buf))'.format(typ)
+    if lang == 'c_adv':
+        nbtrue = f'nsimd_nbtrue(nsimd_loadla(nsimd_packl_{typ}, buf))'
+    elif lang == 'c_base':
+        nbtrue = f'vnbtrue(vloadla(buf, {typ}), {typ})'
     elif lang == 'cxx_base':
-        nbtrue = 'nsimd::nbtrue(nsimd::loadla(buf, {}()), {}())'. \
-                 format(typ, typ)
+        nbtrue = f'nsimd::nbtrue(nsimd::loadla(buf, {typ}()), {typ}())'
     else:
-        nbtrue = 'nsimd::nbtrue(nsimd::loadla<nsimd::packl<{}> >(buf))'. \
-                 format(typ)
+        nbtrue = f'nsimd::nbtrue(nsimd::loadla<nsimd::packl<{typ}> >(buf))'
     if typ == 'f16':
         scalar0 = 'nsimd_f32_to_f16(0)'
         scalar1 = 'nsimd_f32_to_f16(1)'
     else:
-        scalar0 = '({})0'.format(typ)
-        scalar1 = '({})1'.format(typ)
+        scalar0 = f'({typ})0'
+        scalar1 = f'({typ})1'
     with common.open_utf8(opts, filename) as out:
         out.write(
             '''{includes}
@@ -2929,23 +2930,23 @@ def gen_reinterpret_convert(opts, op, from_typ, to_typ, lang):
 
 def gen_reverse(opts, op, typ, lang):
     filename = get_filename(opts, op, typ, lang)
-    if filename == None:
+    if filename is None:
         return
-    if lang == 'c_base':
+    if lang == 'c_adv':
+        test_code = '''nsimd_storea(out, nsimd_reverse(nsimd_loada(
+                         nsimd_pack_{typ}, in)));'''.format(typ=typ)
+    elif lang == 'c_base':
         test_code = \
         'vstorea(out, vreverse(vloada(in, {typ}), {typ}), {typ});'. \
         format(typ=typ)
-    elif lang == 'c_adv':
-        test_code = '''nsimd_storea(out, nsimd_reverse(nsimd_loada(
-                         nsimd_pack_{typ}, in)));'''.format(typ=typ)
-    elif lang == 'cxx_base':
-        test_code = \
-        'nsimd::storea(out, nsimd::reverse(nsimd::loada(in, {typ}()), ' \
-        '{typ}()), {typ}());'.format(typ=typ)
     elif lang == 'cxx_adv':
         test_code = \
         'nsimd::storea(out, nsimd::reverse(' \
         'nsimd::loada<nsimd::pack<{typ}> >(in)));'.format(typ=typ)
+    elif lang == 'cxx_base':
+        test_code = \
+        'nsimd::storea(out, nsimd::reverse(nsimd::loada(in, {typ}()), ' \
+        '{typ}()), {typ}());'.format(typ=typ)
     if typ == 'f16':
         init = 'in[ i ] = nsimd_f32_to_f16((float)(i + 1));'
         comp = 'ok &= nsimd_f16_to_f32(out[len - 1 - i]) == ' \

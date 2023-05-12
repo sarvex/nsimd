@@ -320,5 +320,5 @@ def doit(opts):
 
             out.write('\n\n#endif')
 
-        out.write('\n\n{}\n\n#endif\n'.format(common.hbar))
+        out.write(f'\n\n{common.hbar}\n\n#endif\n')
 

@@ -48,47 +48,45 @@ def get_simd_exts():
 
 def get_prev_simd_ext(simd_ext):
     if simd_ext != 'cpu':
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     return ''
 
 def get_simd_strings(simd_ext):
     if simd_ext == 'cpu':
         return ['cpu']
     else:
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
 
 def emulate_fp16(simd_ext):
     if simd_ext != 'cpu':
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     return True
 
 def get_type(opts, simd_ext, typ, nsimd_typ):
     if simd_ext != 'cpu':
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     if typ not in common.types:
-        raise ValueError('Unknown type "{}"'.format(typ))
+        raise ValueError(f'Unknown type "{typ}"')
     typ2 = typ if typ != 'f16' else 'f32'
-    members = '\n'.join('{} v{};'.format(typ2, i) \
-                        for i in range(0, get_nb_el(typ)))
+    members = '\n'.join(f'{typ2} v{i};' for i in range(0, get_nb_el(typ)))
     return 'typedef struct {{ {} }} {};'.format(members, nsimd_typ)
 
 def get_logical_type(opts, simd_ext, typ, nsimd_typ):
     if simd_ext != 'cpu':
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     if typ not in common.types:
-        raise ValueError('Unknown type "{}"'.format(typ))
-    members = '\n'.join('unsigned int v{};'.format(i) \
-                        for i in range(0, get_nb_el(typ)))
+        raise ValueError(f'Unknown type "{typ}"')
+    members = '\n'.join(f'unsigned int v{i};' for i in range(0, get_nb_el(typ)))
     return 'typedef struct {{ {} }} {};'.format(members, nsimd_typ)
 
 def get_nb_registers(simd_ext):
     if simd_ext != 'cpu':
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     return '1'
 
 def has_compatible_SoA_types(simd_ext):
     if simd_ext != 'cpu':
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
     return False
 
 def get_additional_include(func, platform, simd_ext):
@@ -128,9 +126,12 @@ def func_body(fmt, typ2, logical = False):
 # -----------------------------------------------------------------------------
 
 def op2(op, typ):
-    return func_body('ret.v{{i}} = {cast}({in0}.v{{i}} {op} {in1}.v{{i}});'. \
-                     format(cast='({})'.format(typ) if typ in common.iutypes \
-                            else '', op=op, **fmtspec), typ)
+    return func_body(
+        'ret.v{{i}} = {cast}({in0}.v{{i}} {op} {in1}.v{{i}});'.format(
+            cast=f'({typ})' if typ in common.iutypes else '', op=op, **fmtspec
+        ),
+        typ,
+    )
 
 # -----------------------------------------------------------------------------
 
@@ -395,9 +396,9 @@ def addv1(typ):
     content = '+'.join('{in0}.v{i}'.format(i=i, **fmtspec) \
                        for i in range(0, get_nb_el(typ)))
     if typ == 'f16':
-        return 'return nsimd_f32_to_f16({});'.format(content)
+        return f'return nsimd_f32_to_f16({content});'
     else:
-        return 'return {};'.format(content)
+        return f'return {content};'
 
 # -----------------------------------------------------------------------------
 
@@ -436,7 +437,7 @@ def downcvt2(from_typ, to_typ):
 # -----------------------------------------------------------------------------
 
 def len1(typ):
-    return 'return {};'.format(get_nb_el(typ))
+    return f'return {get_nb_el(typ)};'
 
 # -----------------------------------------------------------------------------
 
@@ -507,16 +508,22 @@ def unzip_half(func, typ):
         content = '\n'.join('ret.v{i} = {in0}.v{j}; '. \
                     format(i=i, j=i*2, **fmtspec) \
                     for i in range(0, int(n/2)))
-        content = content + '\n'.join('ret.v{i} = {in1}.v{j}; '. \
-                    format(i=i, j=2*(i-int(n/2)), **fmtspec) \
-                    for i in range(int(n/2), n))
-    else :
+        content += '\n'.join(
+            'ret.v{i} = {in1}.v{j}; '.format(
+                i=i, j=2 * (i - int(n / 2)), **fmtspec
+            )
+            for i in range(int(n / 2), n)
+        )
+    else:
         content = '\n'.join('ret.v{i} = {in0}.v{j}; '. \
                     format(i=i, j=i*2+1, **fmtspec) \
                     for i in range(0, int(n/2)))
-        content = content + '\n'.join('ret.v{i} = {in1}.v{j}; '. \
-                    format(i=i, j=2*(i-int(n/2))+1, **fmtspec)\
-                    for i in range(int(n/2), n))
+        content += '\n'.join(
+            'ret.v{i} = {in1}.v{j}; '.format(
+                i=i, j=2 * (i - int(n / 2)) + 1, **fmtspec
+            )
+            for i in range(int(n / 2), n)
+        )
     return '''nsimd_cpu_v{typ} ret;
               {content}
               return ret;'''.format(content=content, **fmtspec)
@@ -740,9 +747,7 @@ def get_impl(opts, func, simd_ext, from_typ, to_typ=''):
         'iota': lambda : iota(from_typ)
     }
     if simd_ext != 'cpu':
-        raise ValueError('Unknown SIMD extension "{}"'.format(simd_ext))
-    if not from_typ in common.types:
-        raise ValueError('Unknown from_type "{}"'.format(from_typ))
-    if not func in impls:
-        return common.NOT_IMPLEMENTED
-    return impls[func]()
+        raise ValueError(f'Unknown SIMD extension "{simd_ext}"')
+    if from_typ not in common.types:
+        raise ValueError(f'Unknown from_type "{from_typ}"')
+    return common.NOT_IMPLEMENTED if func not in impls else impls[func]()
